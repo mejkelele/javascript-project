@@ -1,22 +1,36 @@
 <script setup>
+import { RouterLink, RouterView } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+
 const auth = useAuthStore()
 </script>
 
 <template>
-  <nav style="display:flex; gap:1rem; padding:8px 12px;">
-    <RouterLink to="/">Home</RouterLink>
-    <RouterLink to="/about">About</RouterLink>
+  <nav class="navbar">
 
-    <template v-if="!auth.isAuthenticated">
-      <RouterLink to="/login">Logowanie</RouterLink>
-      <RouterLink to="/register">Rejestracja</RouterLink>
-    </template>
+    <div class="nav-left">
+      <RouterLink to="/" class="nav-logo">
+        Cringely
+      </RouterLink>
 
-    <template v-else>
-      <span>Witaj, {{ auth.user?.name || auth.user?.email }}</span>
-      <button @click="auth.logout()">Wyloguj</button>
-    </template>
+      <RouterLink to="/" class="nav-link">Home</RouterLink>
+      <RouterLink to="/about" class="nav-link">About</RouterLink>
+    </div>
+
+    <div class="nav-right">
+
+      <template v-if="!auth.isAuthenticated">
+        <RouterLink to="/login" class="nav-btn">Logowanie</RouterLink>
+        <RouterLink to="/register" class="nav-btn">Rejestracja</RouterLink>
+      </template>
+
+      <template v-else>
+        <span class="nav-user">👋 {{ auth.user?.name || auth.user?.email }}</span>
+        <button class="nav-btn" @click="auth.logout()">Wyloguj</button>
+      </template>
+
+    </div>
+
   </nav>
 
   <RouterView />

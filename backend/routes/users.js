@@ -54,28 +54,27 @@ router.post('/', async (req, res) => {
   }
 });
 
-// [PUT] /api/users/:id — aktualizuj użytkownika (częściowo)
-router.put('/:id', async (req, res) => {
-  try {
-    const { email, password_hash, name } = req.body || {};
-    const user = await User.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+// router.put('/:id', async (req, res) => {
+//   try {
+//     const { email, password_hash, name } = req.body || {};
+//     const user = await User.findByPk(req.params.id);
+//     if (!user) return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
 
-    // aktualizacja tylko podanych pól
-    if (email !== undefined) user.email = email;
-    if (password_hash !== undefined) user.password_hash = password_hash;
-    if (name !== undefined) user.name = name;
+//     // aktualizacja tylko podanych pól
+//     if (email !== undefined) user.email = email;
+//     if (password_hash !== undefined) user.password_hash = password_hash;
+//     if (name !== undefined) user.name = name;
 
-    await user.save();
-    res.json(user);
-  } catch (err) {
-    if (err?.name === 'SequelizeUniqueConstraintError') {
-      return res.status(409).json({ error: 'Użytkownik z takim e-mailem już istnieje' });
-    }
-    console.error(err);
-    res.status(500).json({ error: 'Błąd aktualizacji użytkownika' });
-  }
-});
+//     await user.save();
+//     res.json(user);
+//   } catch (err) {
+//     if (err?.name === 'SequelizeUniqueConstraintError') {
+//       return res.status(409).json({ error: 'Użytkownik z takim e-mailem już istnieje' });
+//     }
+//     console.error(err);
+//     res.status(500).json({ error: 'Błąd aktualizacji użytkownika' });
+//   }
+// });
 
 // [DELETE] /api/users/:id — usuń użytkownika
 router.delete('/:id', async (req, res) => {
