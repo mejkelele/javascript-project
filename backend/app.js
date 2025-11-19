@@ -7,6 +7,7 @@ import sequelize from "./db.js";
 import usersRoutes from "./routes/users.js";
 import authRoutes from "./routes/auth.js";
 import testsRoutes from "./routes/tests.js";
+import questionsRoutes from "./routes/questions.js";
 
 dotenv.config();
 
@@ -31,16 +32,15 @@ app.use(session({
 app.use("/api/users", usersRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/tests", testsRoutes);
+app.use("/api/questions", questionsRoutes);
 
 app.get("/", (_req, res) => res.send("Backend działa z PostgreSQL ale jednoczesnie dziala na SQLite ✅"));
 
 try {
   await sequelize.authenticate();
-  // ⬅️ Zmień komunikat połączenia
   console.log("💾 Połączono z bazą SQLite"); 
 
-  // Synchronizacja modeli (utworzenie tabel, jeśli nie istnieją)
-  await sequelize.sync(); 
+  await sequelize.sync({alter: true}); 
   console.log("✅ Wczytano modele i zsynchronizowano z bazą danych (utworzono tabele).");
 
   const PORT = process.env.PORT || 3001;
