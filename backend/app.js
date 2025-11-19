@@ -4,9 +4,9 @@ import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import sequelize from "./db.js";
-import "./models/index.js";
 import usersRoutes from "./routes/users.js";
 import authRoutes from "./routes/auth.js";
+import testsRoutes from "./routes/tests.js";
 
 dotenv.config();
 
@@ -30,14 +30,21 @@ app.use(session({
 
 app.use("/api/users", usersRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/tests", testsRoutes);
 
-app.get("/", (_req, res) => res.send("Backend działa z PostgreSQL ✅"));
+app.get("/", (_req, res) => res.send("Backend działa z PostgreSQL ale jednoczesnie dziala na SQLite ✅"));
 
 try {
   await sequelize.authenticate();
-  console.log("💾 Połączono z bazą PostgreSQL");
+  // ⬅️ Zmień komunikat połączenia
+  console.log("💾 Połączono z bazą SQLite"); 
+
+  // Synchronizacja modeli (utworzenie tabel, jeśli nie istnieją)
+  await sequelize.sync(); 
+  console.log("✅ Wczytano modele i zsynchronizowano z bazą danych (utworzono tabele).");
+
   const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => console.log(`🚀 Backend działa na porcie ${PORT}`));
+  app.listen(PORT, () => console.log(`🚀 Backend działa na porcie ${PORT} \n http://localhost:3001/`));
 } catch (err) {
   console.error("❌ Błąd bazy danych:", err);
 }
