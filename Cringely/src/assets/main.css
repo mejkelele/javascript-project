@@ -3,7 +3,7 @@
 /* AUTH VIEWS (Login + Register) */
 
 .auth-page {
-  min-height: 100vh;
+  height: 100%;
   background: linear-gradient(135deg, #a6ffcb 0%, #12d8fa 50%, #1fa2ff 100%);
   display: flex;
   flex-direction: column;
@@ -106,91 +106,95 @@ button:disabled {
     transform: translateY(0);
   }
 }
+#app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
 
 .navbar {
-    width: 100%;
-    padding: 12px 24px;
-  
-    /* Ciemne, półprzezroczyste tło */
-    background: rgba(0, 0, 0, 1);
-  
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  
-  
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  
-  /* --- Left side: logo + links --- */
-  .nav-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .nav-logo {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: white;
-    font-weight: bold;
-    font-size: 1.2rem;
-    text-decoration: none;
-  }
-  
-  .nav-logo img {
-    width: 34px;
-    height: 34px;
-    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.4));
-  }
-  
-  /* NAV LINKS */
-  .nav-link {
-    color: #e7e7e7;
-    text-decoration: none;
-    font-size: 1rem;
-    padding: 6px 10px;
-    border-radius: 8px;
-    transition: 0.25s;
-  }
-  
-  .nav-link:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #2ecc71;
-  }
-  
-  /* --- Right side buttons --- */
-  .nav-right {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .nav-btn {
-    padding: 6px 16px;
-    border-radius: 8px;
-    border: none;
-    background: #2ecc71;
-    color: white;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: 0.25s;
-    box-shadow: 0 0 10px #2ecc71aa;
-  }
-  
-  .nav-btn:hover {
-    background: #27ae60;
-    box-shadow: 0 0 16px #2ecc71;
-  }
-  
-  /* User label */
-  .nav-user {
-    color: #fff;
-    font-weight: 500;
-    font-size: 0.95rem;
-    padding-right: 8px;
-  }
+  width: 100%;
+  padding: 12px 24px;
+
+  /* Ciemne, półprzezroczyste tło */
+  background: rgba(0, 0, 0, 1);
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* --- Left side: logo + links --- */
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: white;
+  font-weight: bold;
+  font-size: 1.2rem;
+  text-decoration: none;
+}
+
+.nav-logo img {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.4));
+}
+
+/* NAV LINKS */
+.nav-link {
+  color: #e7e7e7;
+  text-decoration: none;
+  font-size: 1rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: 0.25s;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #2ecc71;
+}
+
+/* --- Right side buttons --- */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-btn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #2ecc71;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: 0.25s;
+  box-shadow: 0 0 10px #2ecc71aa;
+}
+
+.nav-btn:hover {
+  background: #27ae60;
+  box-shadow: 0 0 16px #2ecc71;
+}
+
+/* User label */
+.nav-user {
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding-right: 8px;
+}

@@ -7,18 +7,14 @@ const auth = useAuthStore()
 
 <template>
   <nav class="navbar">
-
     <div class="nav-left">
-      <RouterLink to="/" class="nav-logo">
-        Cringely
-      </RouterLink>
+      <RouterLink to="/" class="nav-logo"> Cringely </RouterLink>
 
       <RouterLink to="/" class="nav-link">Home</RouterLink>
       <RouterLink to="/about" class="nav-link">About</RouterLink>
     </div>
 
     <div class="nav-right">
-
       <template v-if="!auth.isAuthenticated">
         <RouterLink to="/login" class="nav-btn">Logowanie</RouterLink>
         <RouterLink to="/register" class="nav-btn">Rejestracja</RouterLink>
@@ -28,10 +24,9 @@ const auth = useAuthStore()
         <span class="nav-user">👋 {{ auth.user?.name || auth.user?.email }}</span>
         <button class="nav-btn" @click="auth.logout()">Wyloguj</button>
       </template>
-
     </div>
-
   </nav>
-
-  <RouterView />
+  <main>
+    <RouterView />
+  </main>
 </template>
