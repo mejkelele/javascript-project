@@ -2,16 +2,12 @@ import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const sequelize = new Sequelize(
-  process.env.PGDATABASE,
-  process.env.PGUSER,
-  process.env.PGPASSWORD,
-  {
-    host: process.env.PGHOST || '127.0.0.1',
-    port: process.env.PGPORT || 5432,
-    dialect: 'postgres',
-    logging: false,
-  }
-);
+const DB_FILE = process.env.DB_FILE || 'database.sqlite';
+
+const sequelize = new Sequelize({
+  dialect: 'sqlite', // ⬅️ Zmień dialekt na SQLite
+  storage: DB_FILE,  // ⬅️ Ścieżka do pliku bazy danych
+  logging: false,    // Opcjonalnie: wyłącz logowanie zapytań SQL
+});
 
 export default sequelize;
