@@ -5,6 +5,7 @@ const TestSession = sequelize.define(
   "TestSession",
   {
     test_id: { type: DataTypes.INTEGER, allowNull: false },
+    user_id: { type: DataTypes.INTEGER, allowNull: true },
     guest_name: { type: DataTypes.STRING(100) },
     started_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     finished_at: { type: DataTypes.DATE },

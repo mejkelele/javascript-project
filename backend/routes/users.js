@@ -1,10 +1,9 @@
-// routes/users.js
 import express from 'express';
 import User from '../models/User.js';
 
 const router = express.Router();
 
-// 🔧 parser tylko dla /api/users (gdyby globalny middleware był pominięty)
+
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
@@ -34,9 +33,6 @@ router.get('/:id', async (req, res) => {
 // [POST] /api/users — dodaj użytkownika
 router.post('/', async (req, res) => {
   try {
-    // pomocniczy log do debugowania; możesz usunąć
-    // console.log('BODY:', req.body);
-
     const { email, password_hash, name } = req.body || {};
     if (!email || !password_hash) {
       return res.status(400).json({ error: 'Brak wymaganych pól' });
@@ -45,7 +41,6 @@ router.post('/', async (req, res) => {
     const user = await User.create({ email, password_hash, name });
     res.status(201).json(user);
   } catch (err) {
-    // konflikt unikalności emaila
     if (err?.name === 'SequelizeUniqueConstraintError') {
       return res.status(409).json({ error: 'Użytkownik z takim e-mailem już istnieje' });
     }
@@ -54,27 +49,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// router.put('/:id', async (req, res) => {
-//   try {
-//     const { email, password_hash, name } = req.body || {};
-//     const user = await User.findByPk(req.params.id);
-//     if (!user) return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
-
-//     // aktualizacja tylko podanych pól
-//     if (email !== undefined) user.email = email;
-//     if (password_hash !== undefined) user.password_hash = password_hash;
-//     if (name !== undefined) user.name = name;
-
-//     await user.save();
-//     res.json(user);
-//   } catch (err) {
-//     if (err?.name === 'SequelizeUniqueConstraintError') {
-//       return res.status(409).json({ error: 'Użytkownik z takim e-mailem już istnieje' });
-//     }
-//     console.error(err);
-//     res.status(500).json({ error: 'Błąd aktualizacji użytkownika' });
-//   }
-// });
 
 // [DELETE] /api/users/:id — usuń użytkownika
 router.delete('/:id', async (req, res) => {
