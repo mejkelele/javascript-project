@@ -135,6 +135,7 @@ button:disabled {
   gap: 1rem;
 }
 
+
 .nav-logo {
   display: flex;
   align-items: center;
@@ -174,6 +175,7 @@ button:disabled {
 }
 
 .nav-btn {
+  margin: auto 0px;
   padding: 6px 16px;
   border-radius: 8px;
   border: none;
@@ -193,6 +195,7 @@ button:disabled {
 
 /* User label */
 .nav-user {
+  min-width: 100px;
   color: #fff;
   font-weight: 500;
   font-size: 0.95rem;
