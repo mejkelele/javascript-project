@@ -7,6 +7,10 @@ const User = sequelize.define(
     email: { type: DataTypes.STRING(255), allowNull: false, unique: true },
     password_hash: { type: DataTypes.STRING(255), allowNull: false },
     name: { type: DataTypes.STRING(100) },
+    description: { type: DataTypes.TEXT },
+    birth_date: { type: DataTypes.DATEONLY },
+    interests: { type: DataTypes.TEXT },
+    avatar: { type: DataTypes.TEXT },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   },
   {

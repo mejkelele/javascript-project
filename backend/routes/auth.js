@@ -2,7 +2,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { body, validationResult } from 'express-validator';
-import { User } from '../models/index.js';
+import { User, TestSession, Test } from '../models/index.js';
 
 const router = express.Router();
 
@@ -48,10 +48,53 @@ router.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ message: 'Wylogowano' }));
 });
 
+// [GET] /api/auth/me - Pobierz dane zalogowanego użytkownika
 router.get('/me', async (req, res) => {
   if (!req.session.userId) return res.json(null);
-  const user = await User.findByPk(req.session.userId, { attributes: ['id','email','name'] });
+  const user = await User.findByPk(req.session.userId, { 
+      attributes: ['id', 'email', 'name', 'description', 'birth_date', 'interests', 'avatar'] 
+  });
   res.json(user || null);
+});
+
+// [PUT] /api/auth/me - Aktualizuj profil
+router.put('/me', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Brak sesji' });
+    
+    const { name, description, birth_date, interests, avatar } = req.body;
+    
+    try {
+        await User.update(
+            { name, description, birth_date, interests, avatar },
+            { where: { id: req.session.userId } }
+        );
+        const updatedUser = await User.findByPk(req.session.userId, { 
+            attributes: ['id', 'email', 'name', 'description', 'birth_date', 'interests', 'avatar'] 
+        });
+        res.json(updatedUser);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Błąd aktualizacji profilu" });
+    }
+});
+
+// [GET] /api/auth/history - Historia rozwiązanych testów
+router.get('/history', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Brak sesji' });
+
+    try {
+        const sessions = await TestSession.findAll({
+            where: { user_id: req.session.userId },
+            include: [
+                { model: Test, attributes: ['title', 'access_code'] }
+            ],
+            order: [['started_at', 'DESC']]
+        });
+        res.json(sessions);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Błąd pobierania historii" });
+    }
 });
 
 export default router;

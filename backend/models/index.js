@@ -34,6 +34,10 @@ Answer.belongsTo(Question, { foreignKey: "question_id" });
 Test.hasMany(Leaderboard, { foreignKey: "test_id" });
 Leaderboard.belongsTo(Test, { foreignKey: "test_id" });
 
+// User 1..* TestSession (Historia rozwiązań użytkownika)
+User.hasMany(TestSession, { foreignKey: "user_id" });
+TestSession.belongsTo(User, { foreignKey: "user_id" });
+
 export {
   User,
   Test,
