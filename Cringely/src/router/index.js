@@ -17,7 +17,6 @@ const router = createRouter({
     { path: '/login',   name: 'login',     component: LoginView },
     { path: '/my-tests', name: 'my-tests', component: MyTestsView },
     { path: '/create-test', name: 'create-test', component: CreateTestView },
-    { path: '/create-test', name: 'create-test', component: CreateTestView },
     { path: '/edit-test/:id', name: 'edit-test', component: CreateTestView },
     { path: '/t/:code', name: 'public-test', component: PublicTestView },
     { path: '/profile', name: 'profile', component: UserView },

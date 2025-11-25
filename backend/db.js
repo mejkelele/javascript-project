@@ -2,7 +2,7 @@ import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const DB_FILE = process.env.DB_FILE || 'database.sqlite';
+const DB_FILE =  'cringely_test.sqlite';
 
 const sequelize = new Sequelize({
   dialect: 'sqlite', // ⬅️ Zmień dialekt na SQLite
