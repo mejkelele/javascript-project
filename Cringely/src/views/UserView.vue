@@ -1,12 +1,18 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
-const activeTab = ref('profile') // 'profile' lub 'history'
+const router = useRouter() 
 
-// Dane formularza
+if (!auth.isAuthenticated) {
+    router.push('/login')
+}
+
+const activeTab = ref('profile') 
+
 const formData = ref({
   name: '',
   description: '',
@@ -17,17 +23,19 @@ const formData = ref({
 const saving = ref(false)
 const message = ref('')
 
-// Historia
 const history = ref([])
 const loadingHistory = ref(false)
 
-// Inicjalizacja
-onMounted(async () => {
-  if (auth.user) {
-    // Przypisz dane usera do formularza
-    formData.value = { ...auth.user }
-  }
-  fetchHistory()
+watch(() => auth.user, (newUser) => {
+    if (newUser) {
+        formData.value = { ...newUser }
+    }
+}, { immediate: true })
+
+onMounted(() => {
+    if (auth.isAuthenticated) {
+        fetchHistory()
+    }
 })
 
 const fetchHistory = async () => {
@@ -47,7 +55,7 @@ const handleFileUpload = (event) => {
     const file = event.target.files[0]
     if (!file) return
     
-    // Ograniczenie wielkości (np. 2MB), bo base64 w bazie to ciężkie rozwiązanie
+    // Ograniczenie wielkości (2MB)
     if (file.size > 2 * 1024 * 1024) {
         alert("Plik jest za duży (max 2MB)")
         return
@@ -68,7 +76,8 @@ const saveProfile = async () => {
         auth.setUser(data) // Aktualizujemy Pinia
         message.value = 'Zapisano zmiany! ✅'
     } catch (e) {
-        alert("Błąd zapisu")
+        console.error(e)
+        alert("Błąd zapisu. Upewnij się, że plik nie jest za duży.")
     } finally {
         saving.value = false
     }
@@ -80,11 +89,11 @@ const saveProfile = async () => {
     
     <div class="profile-header">
         <div class="avatar-circle">
-            <img v-if="formData.avatar" :src="formData.avatar" alt="Avatar" />
+            <img v-if="formData.avatar" :src="formData.avatar" alt="Avatar" class="avatar-img" />
             <span v-else class="avatar-placeholder">{{ formData.name?.charAt(0) || 'U' }}</span>
         </div>
         <div class="header-info">
-            <h1>{{ auth.user?.name }}</h1>
+            <h1>{{ auth.user?.name || 'Użytkownik' }}</h1>
             <p>{{ auth.user?.email }}</p>
         </div>
     </div>
@@ -153,8 +162,8 @@ const saveProfile = async () => {
 
 /* Header */
 .profile-header { display: flex; align-items: center; gap: 20px; margin-bottom: 2rem; background: var(--color-background-soft); padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-.avatar-circle { width: 80px; height: 80px; border-radius: 50%; overflow: hidden; background: #2ecc71; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 3px solid white; box-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
-.avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-circle { width: 80px; height: 80px; border-radius: 50%; overflow: hidden; background: #2ecc71; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 3px solid white; box-shadow: 0 0 10px rgba(46, 204, 113, 0.3); position: relative; }
+.avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-placeholder { color: white; font-size: 2.5rem; font-weight: bold; }
 .header-info h1 { margin: 0; font-size: 1.8rem; color: var(--color-heading); }
 .header-info p { margin: 0; color: var(--color-text-light-2); }

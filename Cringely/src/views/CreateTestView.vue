@@ -1,10 +1,16 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth' 
 import api from '../services/api'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore() 
+
+if (!auth.isAuthenticated) {
+    router.push('/login')
+}
 
 const isEditMode = computed(() => !!route.params.id)
 const testId = route.params.id
@@ -41,6 +47,9 @@ const generateAccessCode = () => {
 }
 
 onMounted(async () => {
+    // Jeśli nie jesteśmy zalogowani, nie pobieramy danych (przekierowanie zadziała wyżej)
+    if (!auth.isAuthenticated) return
+
     if (isEditMode.value) {
         loading.value = true
         try {
@@ -50,12 +59,17 @@ onMounted(async () => {
             questions.value = data.Questions.map(q => ({
                 id: q.id,
                 text: q.text,
-                question_type: q.question_type,
+                question_type: q.question_type || 'ABC',
                 points: q.points,
                 options: q.QuestionOptions.map(o => ({ text: o.text, is_correct: o.is_correct }))
             }))
         } catch (e) {
-            error.value = "Nie udało się załadować testu."
+            // Jeśli błąd 401/403, też wyrzuć do logowania
+            if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+                router.push('/login')
+            } else {
+                error.value = "Nie udało się załadować testu."
+            }
         } finally {
             loading.value = false
         }
@@ -126,7 +140,7 @@ const saveTest = async () => {
             text: q.text,
             question_type: q.question_type,
             points: q.points,
-            options: q.options.filter(o => o.text.trim() !== '')
+            options: q.question_type === 'OPEN' ? [] : q.options.filter(o => o.text.trim() !== '')
         }
 
         if (q.id) await api.put(`/questions/${q.id}`, payload)
@@ -182,7 +196,7 @@ const saveTest = async () => {
             <select v-model="question.question_type" @change="changeQuestionType(qIndex)" class="type-select">
                 <option value="ABC">Wybór (A, B, C...)</option>
                 <option value="FILL">Uzupełnianie luki</option>
-                <option value="OPEN">Otwarte</option>
+                <option value="OPEN">Otwarte (Ręczna ocena)</option>
             </select>
 
             <div class="points-input-group">
@@ -211,7 +225,7 @@ const saveTest = async () => {
         </div>
 
         <div v-else-if="question.question_type === 'OPEN'" class="open-box">
-            <p class="info-text">ℹ️ To jest pytanie otwarte. Uczeń wpisze dłuższy tekst. Te pytania wymagają ręcznego sprawdzenia przez nauczyciela.</p>
+            <p class="info-text">ℹ️ To jest pytanie otwarte. Uczeń wpisze dłuższy tekst. Te pytania wymagają ręcznego sprawdzenia przez nauczyciela w panelu wyników.</p>
         </div>
 
       </div>
@@ -267,4 +281,6 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 .btn-danger:hover { background: #e74c3c; color: white; }
 .btn-text { background: none; border: none; color: #2ecc71; cursor: pointer; margin-top: 5px; font-size: 0.9rem; font-weight: 600; }
 .err { color: #e74c3c; text-align: center; margin-top: 10px; }
+.inline-label { display: inline; margin-left: 8px; cursor: pointer; }
+.checkbox-wrapper { margin-top: 15px; display: flex; align-items: center; }
 </style>

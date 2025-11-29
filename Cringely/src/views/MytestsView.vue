@@ -45,8 +45,9 @@ onMounted(fetchMyTests)
       <div v-for="test in tests" :key="test.id" class="test-card">
         <div class="card-header">
         <h3>{{ test.title }}</h3>
+        <button class="stat-btn" @click="router.push(`/test-stats/${test.id}`)">📊 Wyniki</button>
         <button class="edit-btn" @click="router.push(`/edit-test/${test.id}`)">✏️ Edytuj</button>
-        </div>
+    </div>
         <p class="desc">{{ test.description }}</p>
         <div class="code-box">
             <span>Kod dostępu:</span>
@@ -70,4 +71,7 @@ onMounted(fetchMyTests)
 .card-header { display: flex; justify-content: space-between; align-items: start; }
 .edit-btn { background: transparent; border: 1px solid var(--color-text); color: var(--color-text); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
 .edit-btn:hover { background: var(--vt-c-divider-light-1); }
+.btn-group { display: flex; gap: 8px; }
+.stat-btn { background: #3498db; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+.stat-btn:hover { background: #2980b9; }
 </style>

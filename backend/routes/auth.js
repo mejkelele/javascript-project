@@ -21,7 +21,17 @@ router.post(
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ email, password_hash: hash, name });
     req.session.userId = user.id;
-    res.status(201).json({ id: user.id, email: user.email, name: user.name });
+    
+    // Zwracamy pełny obiekt (nawet jeśli pusty), dla spójności
+    res.status(201).json({ 
+        id: user.id, 
+        email: user.email, 
+        name: user.name,
+        description: user.description,
+        birth_date: user.birth_date,
+        interests: user.interests,
+        avatar: user.avatar
+    });
   }
 );
 
@@ -40,7 +50,17 @@ router.post('/login',
     if (!ok) return res.status(401).json({ error: 'Błędne dane logowania' });
 
     req.session.userId = user.id;
-    res.json({ id: user.id, email: user.email, name: user.name });
+    
+    // POPRAWKA: Zwracamy WSZYSTKIE pola, w tym avatar
+    res.json({ 
+        id: user.id, 
+        email: user.email, 
+        name: user.name,
+        description: user.description,
+        birth_date: user.birth_date,
+        interests: user.interests,
+        avatar: user.avatar 
+    });
   }
 );
 
