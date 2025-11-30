@@ -13,7 +13,13 @@ const error = ref(null)
 const guestName = ref('')
 const isStarted = ref(false)
 
-// pobieramy test 
+// Zmienne do obsługi odpowiedzi i wyników
+const answers = ref({}) // Obiekt: { id_pytania: 'odpowiedź' }
+const isSubmitting = ref(false)
+const submissionResult = ref(null) // Wynik bieżącego użytkownika
+const leaderboard = ref([]) // Tablica wyników (Top 10)
+
+// 1. Pobranie danych testu przy wejściu na stronę
 onMounted(async () => {
     try {
         const { data } = await api.get(`/tests/public/${accessCode}`)
@@ -25,9 +31,46 @@ onMounted(async () => {
     }
 })
 
+// 2. Rozpoczęcie testu (przejście z ekranu powitalnego do pytań)
 const startTest = () => {
     if (!guestName.value) return alert("Podaj swoje imię!")
     isStarted.value = true
+}
+
+// 3. Wysłanie odpowiedzi do backendu
+const submitTest = async () => {
+    if (!confirm("Czy na pewno chcesz zakończyć test?")) return
+
+    isSubmitting.value = true
+    try {
+        const payload = {
+            guest_name: guestName.value,
+            answers: answers.value
+        }
+        
+        // Wysyłamy odpowiedzi
+        const { data } = await api.post(`/tests/solve/${accessCode}`, payload)
+        submissionResult.value = data // Zapisujemy wynik (punkty)
+        
+        // Po sukcesie pobieramy od razu ranking, żeby go wyświetlić
+        await fetchLeaderboard()
+        
+    } catch (e) {
+        alert("Wystąpił błąd podczas wysyłania odpowiedzi.")
+        console.error(e)
+    } finally {
+        isSubmitting.value = false
+    }
+}
+
+// 4. Pobranie rankingu (Top 10)
+const fetchLeaderboard = async () => {
+    try {
+        const { data } = await api.get(`/tests/public/leaderboard/${accessCode}`)
+        leaderboard.value = data
+    } catch (e) {
+        console.error("Błąd pobierania rankingu", e)
+    }
 }
 </script>
 
@@ -39,7 +82,7 @@ const startTest = () => {
 
         <div v-else class="test-container">
             
-            <div v-if="!isStarted" class="start-card">
+            <div v-if="!isStarted && !submissionResult" class="start-card">
                 <h1>{{ test.title }}</h1>
                 <p class="author">Autor: {{ test.User?.name || 'Nieznany' }}</p>
                 <p class="desc">{{ test.description }}</p>
@@ -48,6 +91,34 @@ const startTest = () => {
                     <label>Twoje Imię / Nick:</label>
                     <input v-model="guestName" placeholder="Jan Kowalski" />
                     <button @click="startTest" class="start-btn">🚀 Rozpocznij Test</button>
+                </div>
+            </div>
+
+            <div v-else-if="submissionResult" class="result-card">
+                <h1>🏁 Test Zakończony!</h1>
+                
+                <div v-if="submissionResult.requiresGrading" class="pending-box">
+                    <p class="pending-msg">⚠️ Twój test zawiera pytania otwarte.</p>
+                    <p>Obecny wynik to punkty tylko za zadania zamknięte. Nauczyciel sprawdzi resztę wkrótce.</p>
+                </div>
+
+                <div class="score-circle" :class="{ partial: submissionResult.requiresGrading }">
+                    <span>{{ submissionResult.score }}</span>
+                    <span class="total">/ {{ submissionResult.maxPoints }} pkt</span>
+                </div>
+                
+                <p class="msg">{{ submissionResult.message }}</p>
+                
+                <div class="leaderboard-box">
+                    <h3>🏆 Tablica Wyników (Top 10)</h3>
+                    <ul v-if="leaderboard.length">
+                        <li v-for="(entry, idx) in leaderboard" :key="idx" :class="{ 'me': entry.guest_name === guestName }">
+                            <span class="rank">#{{ idx + 1 }}</span>
+                            <span class="name">{{ entry.guest_name }}</span>
+                            <span class="points">{{ entry.score }} pkt</span>
+                        </li>
+                    </ul>
+                    <p v-else class="empty-list">Bądź pierwszy na liście!</p>
                 </div>
             </div>
 
@@ -65,23 +136,31 @@ const startTest = () => {
                     </div>
 
                     <div v-if="q.question_type === 'ABC'" class="opts-group">
-                        <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label">
-                            <input type="radio" :name="'q'+q.id" :value="opt.id" />
+                        <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label" 
+                               :class="{ selected: answers[q.id] === opt.id }">
+                            <input 
+                                type="radio" 
+                                :name="'q'+q.id" 
+                                :value="opt.id" 
+                                v-model="answers[q.id]" 
+                            />
                             {{ opt.text }}
                         </label>
                     </div>
 
                     <div v-else-if="q.question_type === 'FILL'" class="fill-group">
-                        <input type="text" placeholder="Wpisz odpowiedź..." />
+                        <input type="text" v-model="answers[q.id]" placeholder="Wpisz odpowiedź..." />
                     </div>
 
                     <div v-else-if="q.question_type === 'OPEN'" class="open-group">
-                        <textarea placeholder="Twoja odpowiedź..."></textarea>
+                        <textarea v-model="answers[q.id]" placeholder="Twoja odpowiedź..."></textarea>
                     </div>
 
                 </div>
 
-                <button class="finish-btn" disabled title="Logika wysyłania wkrótce...">🏁 Zakończ Test (Wkrótce)</button>
+                <button class="finish-btn" @click="submitTest" :disabled="isSubmitting">
+                    {{ isSubmitting ? 'Wysyłanie...' : '🏁 Zakończ i wyślij' }}
+                </button>
             </div>
 
         </div>
@@ -95,8 +174,9 @@ const startTest = () => {
 
 .test-container { width: 100%; max-width: 700px; }
 
-.start-card { background: white; padding: 3rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
-.start-card h1 { font-size: 2.5rem; color: #2c3e50; margin-bottom: 0.5rem; }
+/* Karta startowa i wynikowa */
+.start-card, .result-card { background: white; padding: 3rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+.start-card h1, .result-card h1 { font-size: 2.5rem; color: #2c3e50; margin-bottom: 0.5rem; }
 .author { color: #7f8c8d; margin-bottom: 1.5rem; }
 .desc { font-size: 1.1rem; margin-bottom: 2rem; color: #34495e; }
 
@@ -104,6 +184,30 @@ const startTest = () => {
 .start-btn { padding: 12px 30px; font-size: 1.2rem; background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
 .start-btn:hover { background: #27ae60; transform: scale(1.05); }
 
+/* Pending Info */
+.pending-box { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+.pending-msg { font-weight: bold; margin-bottom: 5px; font-size: 1.1rem; }
+
+/* Kółko z wynikiem */
+.score-circle { width: 150px; height: 150px; background: #2ecc71; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 2rem auto; box-shadow: 0 10px 20px rgba(46, 204, 113, 0.4); }
+.score-circle.partial { border: 4px dashed #f39c12; background: #f39c12; }
+.score-circle span { font-size: 3rem; font-weight: bold; line-height: 1; }
+.score-circle .total { font-size: 1rem; opacity: 0.9; font-weight: normal; }
+.msg { font-size: 1.2rem; margin-bottom: 2rem; color: #27ae60; font-weight: bold; }
+
+/* Leaderboard */
+.leaderboard-box { margin-top: 2rem; text-align: left; background: #f8f9fa; padding: 1.5rem; border-radius: 10px; border: 1px solid #eee; }
+.leaderboard-box h3 { text-align: center; color: #2c3e50; margin-bottom: 1rem; font-size: 1.3rem; }
+.leaderboard-box ul { list-style: none; padding: 0; margin: 0; }
+.leaderboard-box li { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; font-size: 1rem; align-items: center; }
+.leaderboard-box li:last-child { border-bottom: none; }
+.leaderboard-box li.me { background: rgba(46, 204, 113, 0.15); border-radius: 6px; font-weight: bold; border-bottom: none; margin: 2px 0; color: #27ae60; }
+.rank { font-weight: bold; color: #bdc3c7; width: 35px; }
+.name { flex: 1; }
+.points { font-weight: bold; color: #2c3e50; }
+.empty-list { text-align: center; color: #7f8c8d; font-style: italic; }
+
+/* Widok pytań */
 .questions-view { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
 .header { border-bottom: 2px solid #eee; padding-bottom: 1rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; }
 .q-item { margin-bottom: 2.5rem; }
@@ -114,9 +218,14 @@ const startTest = () => {
 .opts-group { display: flex; flex-direction: column; gap: 8px; }
 .opt-label { padding: 10px; border: 1px solid #eee; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
 .opt-label:hover { background: #f9f9f9; border-color: #ddd; }
+.opt-label.selected { background: #e8f8f5; border-color: #2ecc71; font-weight: 500; }
+.opt-label input { accent-color: #2ecc71; width: 18px; height: 18px; }
 
-.fill-group input, .open-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
-.open-group textarea { min-height: 100px; }
+.fill-group input, .open-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; transition: 0.2s; }
+.fill-group input:focus, .open-group textarea:focus { border-color: #2ecc71; outline: none; box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1); }
+.open-group textarea { min-height: 100px; resize: vertical; }
 
-.finish-btn { width: 100%; padding: 15px; background: #34495e; color: white; border: none; border-radius: 8px; font-size: 1.2rem; cursor: not-allowed; opacity: 0.7; margin-top: 2rem; }
+.finish-btn { width: 100%; padding: 15px; background: #34495e; color: white; border: none; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.3s; margin-top: 2rem; font-weight: bold; }
+.finish-btn:hover:not(:disabled) { background: #2c3e50; transform: translateY(-2px); }
+.finish-btn:disabled { opacity: 0.7; cursor: wait; }
 </style>

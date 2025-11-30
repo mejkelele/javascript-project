@@ -15,7 +15,7 @@ const checkOwnership = async (testId, userId) => {
 
 // [POST] Dodaj pytanie
 router.post('/', requireAuth, async (req, res) => {
-  const { test_id, text, question_type, options, points } = req.body; // <--- Dodano points
+  const { test_id, text, question_type, options, points } = req.body;
 
   try {
     const question = await Question.create({ 
@@ -25,7 +25,7 @@ router.post('/', requireAuth, async (req, res) => {
         points: points || 1 
     });
 
-    if (options?.length) {
+    if (options && options.length > 0) {
       const opts = options.map(o => ({ ...o, question_id: question.id }));
       await QuestionOption.bulkCreate(opts);
     }
@@ -39,7 +39,7 @@ router.post('/', requireAuth, async (req, res) => {
 // [PUT] Edytuj pytanie
 router.put('/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
-    const { text, options, points } = req.body; 
+    const { text, options, points, question_type } = req.body; 
 
     try {
         const question = await Question.findByPk(id);
@@ -47,20 +47,28 @@ router.put('/:id', requireAuth, async (req, res) => {
 
         question.text = text;
         if (points) question.points = points;
+        if (question_type) question.question_type = question_type; // Aktualizacja typu
+        
         await question.save();
 
+        // Nadpisujemy opcje (usuń stare -> dodaj nowe)
         if (options) {
              await QuestionOption.destroy({ where: { question_id: id } });
-             const opts = options.map(o => ({ 
-                 question_id: id, 
-                 text: o.text, 
-                 is_correct: o.is_correct 
-             }));
-             await QuestionOption.bulkCreate(opts);
+             if (options.length > 0) {
+                 const opts = options.map(o => ({ 
+                     question_id: id, 
+                     text: o.text, 
+                     is_correct: o.is_correct 
+                 }));
+                 await QuestionOption.bulkCreate(opts);
+             }
         }
 
         res.json(question);
-    } catch (err) { /* ... */ }
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: "Błąd edycji pytania" });
+    }
 });
 
 // [DELETE] /api/questions/:id — usuń pytanie
@@ -70,6 +78,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
         const question = await Question.findByPk(id);
         if (!question) return res.status(404).json({ error: "Pytanie nie istnieje" });
 
+        // Sprawdź czy user jest właścicielem testu
         if (!await checkOwnership(question.test_id, req.session.userId)) {
             return res.status(403).json({ error: "Brak dostępu." });
         }

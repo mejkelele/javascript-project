@@ -7,6 +7,7 @@ import MyTestsView from '../views/MytestsView.vue'
 import CreateTestView from '../views/CreateTestView.vue'
 import PublicTestView from '../views/PublicTestView.vue'
 import UserView from '../views/UserView.vue'
+import TestStatsView from '../views/TestStatsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +21,7 @@ const router = createRouter({
     { path: '/edit-test/:id', name: 'edit-test', component: CreateTestView },
     { path: '/t/:code', name: 'public-test', component: PublicTestView },
     { path: '/profile', name: 'profile', component: UserView },
+    { path: '/test-stats/:id', name: 'test-stats', component: TestStatsView },
   ],
 })
 
