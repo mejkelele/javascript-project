@@ -22,6 +22,21 @@ const testData = ref({
   is_public: true
 })
 
+// Domyślne progi
+const defaultThresholds = [
+  { grade: "5.0", min: 90 },
+  { grade: "4.5", min: 80 },
+  { grade: "4.0", min: 70 },
+  { grade: "3.5", min: 60 },
+  { grade: "3.0", min: 50 },
+  { grade: "2.0", min: 0 }
+]
+
+const scoringMethod = ref("standard")
+const defaultScore = ref(1)
+
+const scoreThresholds = ref(JSON.parse(JSON.stringify(defaultThresholds)))
+
 const questions = ref([])
 const loading = ref(false)
 const error = ref(null)
@@ -46,6 +61,16 @@ const generateAccessCode = () => {
     return `${cleanTitle}-${randomPart}`
 }
 
+// Dodawanie nowego progu
+const addThreshold = () => {
+  scoreThresholds.value.push({ grade: '', min: 0 })
+}
+
+// Usuwanie progu
+const removeThreshold = (index) => {
+  scoreThresholds.value.splice(index, 1)
+}
+
 onMounted(async () => {
     // Jeśli nie jesteśmy zalogowani, nie pobieramy danych (przekierowanie zadziała wyżej)
     if (!auth.isAuthenticated) return
@@ -55,6 +80,16 @@ onMounted(async () => {
         try {
             const { data } = await api.get(`/tests/${testId}`)
             testData.value = { ...data } // Kopiujemy dane
+
+            scoringMethod.value = data.scoringMethod || "standard"
+            defaultScore.value = data.defaultScore || 1
+            
+            // Jeśli są zapisane progi, użyj ich. Jeśli nie (lub pusta tablica), użyj domyślnych.
+            if (data.scoreThresholds && Array.isArray(data.scoreThresholds) && data.scoreThresholds.length > 0) {
+                scoreThresholds.value = data.scoreThresholds
+            } else {
+                scoreThresholds.value = JSON.parse(JSON.stringify(defaultThresholds))
+            }
             
             questions.value = data.Questions.map(q => ({
                 id: q.id,
@@ -83,7 +118,7 @@ const addQuestion = () => {
     id: null,
     text: '',
     question_type: 'ABC',
-    points: 1,
+    points: defaultScore.value, // domyślna punktacja przy nowym pytaniu
     options: [{ text: '', is_correct: false }, { text: '', is_correct: false }]
   })
 }
@@ -124,6 +159,13 @@ const saveTest = async () => {
 
   try {
     let currentTestId = testId
+
+    // Przypisanie konfiguracji punktacji do obiektu wysyłanego do API
+    testData.value.scoringMethod = scoringMethod.value
+    testData.value.defaultScore = defaultScore.value
+    // Wysyłany aktualny stan progów z edytora
+    testData.value.scoreThresholds = scoreThresholds.value
+
     if (isEditMode.value) {
         await api.put(`/tests/${testId}`, testData.value)
     } else {
@@ -181,6 +223,43 @@ const saveTest = async () => {
         <input type="checkbox" id="isPublic" v-model="testData.is_public" />
         <label for="isPublic" class="inline-label">Test Publiczny (dostępny dla każdego, kto ma link)</label>
     </div>
+    
+    <section class="scoring-section">
+      <h3>Sposób punktowania</h3>
+
+      <label class="inline-label">Wybierz sposób:</label>
+      <select v-model="scoringMethod">
+        <option value="standard">Domyślna (2.0 → 5.0, nieedytowalna)</option>
+        <option value="custom">Własna (edytowalna)</option>
+      </select>
+
+      <div class="mt-3">
+        <label>Domyślne punkty za pytanie</label>
+        <input type="number" v-model.number="defaultScore" min="0" />
+      </div>
+
+      <div class="mt-4">
+        <h4>Progi ocen</h4>
+
+        <!-- Widok nieedytowalny, gdy standard -->
+        <ul v-if="scoringMethod === 'standard'">
+        <li v-for="(thr, idx) in scoreThresholds" :key="thr.grade + '-' + idx">
+            Ocena {{ thr.grade }} — ≥ {{ thr.min }} %
+        </li>
+        </ul>
+
+        <!-- Widok edytowalny, gdy custom -->
+        <div v-else>
+        <div v-for="(thr, idx) in scoreThresholds" :key="idx" class="threshold-row">
+          <input type="text" v-model="thr.grade" placeholder="np. 5.0" />
+          <input type="number" v-model.number="thr.min" min="0" max="100" /> %
+          <button type="button" @click="removeThreshold(idx)">Usuń</button>
+        </div>
+        <button type="button" @click="addThreshold()">Dodaj próg</button>
+        </div>
+      </div>
+    </section>
+
     </div>
 
     <div class="form-section">
