@@ -74,7 +74,7 @@ button {
 
 button:hover {
   background: #27ae60;
-  box-shadow: 0 0 18px #2ecc71;
+  /* box-shadow: 0 0 18px #2ecc71; */
 }
 
 button:disabled {
@@ -134,7 +134,6 @@ button:disabled {
   align-items: center;
   gap: 1rem;
 }
-
 
 .nav-logo {
   display: flex;
@@ -200,4 +199,191 @@ button:disabled {
   font-weight: 500;
   font-size: 0.95rem;
   padding-right: 8px;
+}
+
+/* ----- MyTestView ----- */
+
+/* ---------------------------------------
+   STRONA LISTY TESTÓW – NOWY UKŁAD
+----------------------------------------*/
+
+.tests-page {
+  width: 100%;
+  padding: 30px 20px;
+  color: white;
+}
+
+/* -------- Nagłówek -------- */
+
+.tests-header {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.tests-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  /* text-shadow: 0 0 12px rgba(46, 204, 113, 0.7); */
+}
+
+/* -------- Przycisk "Utwórz test" -------- */
+
+.add-test-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2.5rem;
+}
+
+.btn-add-test {
+  width: 60%;
+  max-width: 600px;
+  padding: 14px 24px;
+  background: #2ecc71;
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 18px #2ecc71aa;
+  transition: 0.25s;
+}
+
+.btn-add-test:hover {
+  background: #27ae60;
+  /* box-shadow: 0 0 26px #2ecc71; */
+  /* transform: translateY(-2px); */
+}
+
+/* -------- Lista kafelków -------- */
+
+.tests-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center; /* centrujemy kafelki */
+  padding: 0 1rem;
+}
+/* -------- Kafelki testów -------- */
+
+.test-card {
+  width: 100%;
+  max-width: 900px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 1.6rem;
+  /* border: 1px solid rgba(46, 204, 113, 0.25); */
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.35);
+  transition: 0.3s;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.test-card:hover {
+  box-shadow: 0 0 35px rgba(46, 204, 113, 0.3);
+  /* transform: translateY(-2px); */
+}
+
+/* Ikona + tytuł */
+.test-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.test-icon {
+  font-size: 2rem;
+}
+
+.test-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+/* Opis */
+.test-desc {
+  margin-top: 8px;
+  color: #dcdcdc;
+}
+
+/* Dolna sekcja */
+.test-footer {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Kod testu */
+.code-box {
+  padding: 6px 12px;
+  background: rgba(46, 204, 113, 0.1);
+  border-radius: 8px;
+  font-family: monospace;
+  color: #2ecc71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.25);
+}
+
+/* Przyciski */
+.card-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* Nie zmieniamy ich, są spójne z systemem UI */
+.btn-blue,
+.btn-outline {
+  font-size: 0.9rem;
+  margin: 0px;
+}
+
+.btn-blue:hover,
+.btn-outline:hover {
+  transform: scale(1.02);
+}
+
+/* Teksty info */
+.info-text {
+  margin-top: 2rem;
+  text-align: center;
+  color: #ccc;
+}
+
+/* Animacja */
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.link-label {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.code-box.clickable {
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.code-box.clickable:hover {
+  transform: scale(1.02);
 }
