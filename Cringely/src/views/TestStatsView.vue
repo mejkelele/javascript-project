@@ -9,6 +9,33 @@ const stats = ref(null)
 const loading = ref(true)
 const expandedSessionId = ref(null) // ID rozwiniętej sesji
 
+const calculateGrade = (currentScore) => {
+    if (!stats.value || !stats.value.totalMaxPoints || stats.value.totalMaxPoints === 0) return '-';
+
+    const max = stats.value.totalMaxPoints;
+    const percentage = (currentScore / max) * 100;
+    
+    let thresholds = stats.value.scoreThresholds || [];
+
+    if (thresholds.length === 0) return '?';
+
+    thresholds = [...thresholds].sort((a, b) => b.min - a.min);
+
+    for (const t of thresholds) {
+        if (percentage >= t.min) {
+            return t.grade;
+        }
+    }
+
+    return '2.0';
+}
+
+const getGradeColorClass = (grade) => {
+    if (grade === '2.0' || grade === '1') return 'grade-bad';
+    if (grade.startsWith('5') || grade.startsWith('6')) return 'grade-excellent';
+    return 'grade-good';
+}
+
 // Pobieranie danych
 const fetchStats = async () => {
     try {
@@ -81,10 +108,14 @@ const gradeAnswer = async (session, answerId, isCorrect) => {
                     <div class="session-header" @click="toggleDetails(s.id)">
                         <div class="col name">{{ s.guest_name }}</div>
                         <div class="col score">
-                            <span class="badge" :class="{'pending': s.Answers.some(a => a.is_correct === null)}">
-                                {{ s.score }} pkt
-                            </span>
-                        </div>
+                        <span class="badge" :class="{'pending': s.Answers.some(a => a.is_correct === null)}">
+                            {{ s.score }} / {{ stats.totalMaxPoints }} pkt
+                        </span>
+                        
+                        <span class="grade-pill" :class="getGradeColorClass(calculateGrade(s.score))">
+                            Ocena: {{ calculateGrade(s.score) }}
+                        </span>
+                    </div>
                         <div class="col date">{{ new Date(s.started_at).toLocaleString() }}</div>
                         <div class="col arrow">{{ expandedSessionId === s.id ? '▲' : '▼' }}</div>
                     </div>
@@ -137,6 +168,20 @@ const gradeAnswer = async (session, answerId, isCorrect) => {
 .big-num { font-size: 2.5rem; font-weight: bold; color: #2ecc71; margin: 0; }
 
 .table-container { background: var(--color-background-soft); padding: 20px; border-radius: 12px; border: 1px solid var(--color-border); }
+
+.grade-pill {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    border: 1px solid currentColor;
+}
+.grade-excellent { color: #2ecc71; background: rgba(46, 204, 113, 0.1); }
+.grade-good { color: #3498db; background: rgba(52, 152, 219, 0.1); }
+.grade-bad { color: #e74c3c; background: rgba(231, 76, 60, 0.1); }
+
 
 /* Lista sesji */
 .session-row { border-bottom: 1px solid var(--color-border); }

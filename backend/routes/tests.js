@@ -73,7 +73,11 @@ router.get("/:id/stats", requireAuth, async (req, res) => {
     const userId = req.session.userId;
 
     try {
-        const test = await Test.findOne({ where: { id, user_id: userId } });
+        const test = await Test.findOne({ 
+            where: { id, user_id: userId },
+            include: [{ model: Question, attributes: ['points'] }] 
+        });
+
         if (!test) return res.status(403).json({ error: "Brak dostępu" });
 
         // Pobieramy sesje WRAZ z odpowiedziami, żeby autor mógł je ocenić
@@ -88,6 +92,8 @@ router.get("/:id/stats", requireAuth, async (req, res) => {
             order: [['started_at', 'DESC']]
         });
 
+        const totalMaxPoints = test.Questions.reduce((sum, q) => sum + (q.points || 0), 0);
+
         const count = sessions.length;
         const scores = sessions.map(s => s.score || 0);
         const avgScore = count > 0 ? (scores.reduce((a, b) => a + b, 0) / count).toFixed(1) : 0;
@@ -95,6 +101,8 @@ router.get("/:id/stats", requireAuth, async (req, res) => {
 
         res.json({
             title: test.title,
+            scoreThresholds: test.scoreThresholds,
+            totalMaxPoints,
             count,
             avgScore,
             maxScore,
@@ -125,12 +133,29 @@ router.get("/:id", requireAuth, async (req, res) => {
 // [POST] /api/tests
 router.post("/", requireAuth, async (req, res) => {
   const user_id = req.session.userId;
-  const { title, description, access_code, is_public } = req.body || {};
+  const { 
+      title, 
+      description, 
+      access_code, 
+      is_public, 
+      scoringMethod, 
+      scoreThresholds, 
+      defaultScore 
+  } = req.body || {};
   
   if (!title || !access_code) return res.status(400).json({ error: "Brak wymaganych pól." });
   
   try {
-    const t = await Test.create({ user_id, title, description, access_code, is_public: is_public ?? true });
+    const t = await Test.create({ 
+        user_id, 
+        title, 
+        description, 
+        access_code, 
+        is_public: is_public ?? true, 
+        scoringMethod: scoringMethod || "standard",
+        scoreThresholds: scoreThresholds || [], 
+        defaultScore: defaultScore || 1
+    });
     res.status(201).json(t);
   } catch (e) {
     if (e?.name === "SequelizeUniqueConstraintError") return res.status(409).json({ error: "Kod dostępu już istnieje." });
@@ -143,7 +168,7 @@ router.post("/", requireAuth, async (req, res) => {
 router.put("/:id", requireAuth, async (req, res) => {
     const user_id = req.session.userId;
     const { id } = req.params;
-    const { title, description, is_public } = req.body;
+    const { title, description, is_public, scoringMethod, scoreThresholds, defaultScore } = req.body;
 
     try {
         const test = await Test.findOne({ where: { id, user_id } });
@@ -152,6 +177,11 @@ router.put("/:id", requireAuth, async (req, res) => {
         test.title = title;
         test.description = description;
         test.is_public = is_public;
+        
+        // Aktualizacja pól punktacji
+        if (scoringMethod) test.scoringMethod = scoringMethod;
+        if (scoreThresholds) test.scoreThresholds = scoreThresholds;
+        if (defaultScore) test.defaultScore = defaultScore;
 
         await test.save();
         res.json(test);
