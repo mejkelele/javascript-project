@@ -30,6 +30,22 @@ router.get("/public/leaderboard/:code", async (req, res) => {
     }
 });
 
+// [GET] /api/tests/recent - 3 najnowsze publiczne testy
+router.get("/recent", async (req, res) => {
+    try {
+        const tests = await Test.findAll({
+            where: { is_public: true },
+            order: [['createdAt', 'DESC']],
+            limit: 3,
+            attributes: ['title', 'description', 'access_code', 'createdAt']
+        });
+        res.json(tests);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Błąd pobierania najnowszych testów" });
+    }
+});
+
 // [GET] /api/tests/public/:code
 router.get("/public/:code", async (req, res) => {
     const { code } = req.params;
