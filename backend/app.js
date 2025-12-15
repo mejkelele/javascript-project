@@ -41,7 +41,7 @@ try {
   await sequelize.authenticate();
   console.log("💾 Połączono z bazą SQLite"); 
 
-  await sequelize.sync({alter: true}); 
+  await sequelize.sync(); 
   console.log("✅ Wczytano modele i zsynchronizowano z bazą danych (utworzono tabele).");
 
   const PORT = process.env.PORT || 3001;

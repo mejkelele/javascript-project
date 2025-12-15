@@ -387,3 +387,76 @@ button:disabled {
 .code-box.clickable:hover {
   transform: scale(1.02);
 }
+
+/* ===============================
+   PUBLIC TEST – START VIEW
+================================ */
+
+.public-start {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.start-card {
+  max-width: 50%;
+  width: 100%;
+  text-align: center;
+  padding: 30px 0px;
+}
+
+/* Tytuł testu */
+.public-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: .4rem;
+  color: white;
+}
+
+/* Autor */
+.public-author {
+  font-size: 1.05rem;
+  color: #bdbdbd;
+  margin-bottom: 2.2rem;
+}
+
+/* Formularz */
+.guest-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.guest-form label {
+  font-size: .95rem;
+  color: #cfcfcf;
+}
+
+.guest-form input {
+  max-width: 320px;
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+/* Przycisk startu */
+.start-btn {
+  margin-top: 1.2rem;
+  width: 100%;
+  max-width: 280px;
+  font-size: 1.1rem;
+  padding: .85rem 1.2rem;
+  border-radius: 12px;
+  box-shadow: 0 0 18px rgba(46, 204, 113, 0.45);
+}
+
+.start-btn:hover {
+  transform: translateY(-2px);
+}
+
+.logged-user {
+  color: #dcdcdc;
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}

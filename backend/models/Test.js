@@ -19,10 +19,6 @@ const Test = sequelize.define(
       allowNull: false,
       defaultValue: []
     },
-    defaultScore: {
-      type: DataTypes.INTEGER,
-      defaultValue: 1
-    },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   },
   {

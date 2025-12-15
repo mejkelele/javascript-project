@@ -33,7 +33,6 @@ const defaultThresholds = [
 ]
 
 const scoringMethod = ref("standard")
-const defaultScore = ref(1)
 
 const scoreThresholds = ref(JSON.parse(JSON.stringify(defaultThresholds)))
 
@@ -82,7 +81,6 @@ onMounted(async () => {
             testData.value = { ...data } // Kopiujemy dane
 
             scoringMethod.value = data.scoringMethod || "standard"
-            defaultScore.value = data.defaultScore || 1
             
             // Jeśli są zapisane progi, użyj ich. Jeśli nie (lub pusta tablica), użyj domyślnych.
             if (data.scoreThresholds && Array.isArray(data.scoreThresholds) && data.scoreThresholds.length > 0) {
@@ -118,7 +116,7 @@ const addQuestion = () => {
     id: null,
     text: '',
     question_type: 'ABC',
-    points: defaultScore.value, // domyślna punktacja przy nowym pytaniu
+    points: 1,
     options: [{ text: '', is_correct: false }, { text: '', is_correct: false }]
   })
 }
@@ -162,7 +160,6 @@ const saveTest = async () => {
 
     // Przypisanie konfiguracji punktacji do obiektu wysyłanego do API
     testData.value.scoringMethod = scoringMethod.value
-    testData.value.defaultScore = defaultScore.value
     // Wysyłany aktualny stan progów z edytora
     testData.value.scoreThresholds = scoreThresholds.value
 
@@ -232,12 +229,7 @@ const saveTest = async () => {
         <option value="standard">Domyślna (2.0 → 5.0, nieedytowalna)</option>
         <option value="custom">Własna (edytowalna)</option>
       </select>
-
-      <div class="mt-3">
-        <label>Domyślne punkty za pytanie</label>
-        <input type="number" v-model.number="defaultScore" min="0" />
-      </div>
-
+      
       <div class="mt-4">
         <h4>Progi ocen</h4>
 

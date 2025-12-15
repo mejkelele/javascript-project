@@ -140,7 +140,6 @@ router.post("/", requireAuth, async (req, res) => {
       is_public, 
       scoringMethod, 
       scoreThresholds, 
-      defaultScore 
   } = req.body || {};
   
   if (!title || !access_code) return res.status(400).json({ error: "Brak wymaganych pól." });
@@ -154,7 +153,6 @@ router.post("/", requireAuth, async (req, res) => {
         is_public: is_public ?? true, 
         scoringMethod: scoringMethod || "standard",
         scoreThresholds: scoreThresholds || [], 
-        defaultScore: defaultScore || 1
     });
     res.status(201).json(t);
   } catch (e) {
@@ -168,7 +166,7 @@ router.post("/", requireAuth, async (req, res) => {
 router.put("/:id", requireAuth, async (req, res) => {
     const user_id = req.session.userId;
     const { id } = req.params;
-    const { title, description, is_public, scoringMethod, scoreThresholds, defaultScore } = req.body;
+    const { title, description, is_public, scoringMethod, scoreThresholds } = req.body;
 
     try {
         const test = await Test.findOne({ where: { id, user_id } });
@@ -181,7 +179,6 @@ router.put("/:id", requireAuth, async (req, res) => {
         // Aktualizacja pól punktacji
         if (scoringMethod) test.scoringMethod = scoringMethod;
         if (scoreThresholds) test.scoreThresholds = scoreThresholds;
-        if (defaultScore) test.defaultScore = defaultScore;
 
         await test.save();
         res.json(test);
