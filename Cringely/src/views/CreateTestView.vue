@@ -19,10 +19,10 @@ const testData = ref({
   title: '',
   description: '',
   access_code: '',
-  is_public: true
+  is_public: true,
+  show_answers: true // Domyślnie włączone
 })
 
-// Domyślne progi
 const defaultThresholds = [
   { grade: "5.0", min: 90 },
   { grade: "4.5", min: 80 },
@@ -33,20 +33,16 @@ const defaultThresholds = [
 ]
 
 const scoringMethod = ref("standard")
-
 const scoreThresholds = ref(JSON.parse(JSON.stringify(defaultThresholds)))
-
 const questions = ref([])
 const loading = ref(false)
 const error = ref(null)
 
-// Link do udostępnienia (widoczny tylko gdy test ma kod)
 const shareLink = computed(() => {
     if (!testData.value.access_code) return ''
     return `${window.location.origin}/t/${testData.value.access_code}`
 })
 
-// Suma punktów
 const totalPoints = computed(() => {
     return questions.value.reduce((sum, q) => sum + (parseInt(q.points) || 0), 0)
 })
@@ -60,29 +56,23 @@ const generateAccessCode = () => {
     return `${cleanTitle}-${randomPart}`
 }
 
-// Dodawanie nowego progu
-const addThreshold = () => {
-  scoreThresholds.value.push({ grade: '', min: 0 })
-}
-
-// Usuwanie progu
-const removeThreshold = (index) => {
-  scoreThresholds.value.splice(index, 1)
-}
+const addThreshold = () => { scoreThresholds.value.push({ grade: '', min: 0 }) }
+const removeThreshold = (index) => { scoreThresholds.value.splice(index, 1) }
 
 onMounted(async () => {
-    // Jeśli nie jesteśmy zalogowani, nie pobieramy danych (przekierowanie zadziała wyżej)
     if (!auth.isAuthenticated) return
 
     if (isEditMode.value) {
         loading.value = true
         try {
             const { data } = await api.get(`/tests/${testId}`)
-            testData.value = { ...data } // Kopiujemy dane
+            testData.value = { ...data }
+            
+            // Upewnij się, że pole show_answers jest ustawione (dla starych testów)
+            if (testData.value.show_answers === undefined) testData.value.show_answers = true;
 
             scoringMethod.value = data.scoringMethod || "standard"
             
-            // Jeśli są zapisane progi, użyj ich. Jeśli nie (lub pusta tablica), użyj domyślnych.
             if (data.scoreThresholds && Array.isArray(data.scoreThresholds) && data.scoreThresholds.length > 0) {
                 scoreThresholds.value = data.scoreThresholds
             } else {
@@ -97,7 +87,6 @@ onMounted(async () => {
                 options: q.QuestionOptions.map(o => ({ text: o.text, is_correct: o.is_correct }))
             }))
         } catch (e) {
-            // Jeśli błąd 401/403, też wyrzuć do logowania
             if (e.response && (e.response.status === 401 || e.response.status === 403)) {
                 router.push('/login')
             } else {
@@ -121,7 +110,6 @@ const addQuestion = () => {
   })
 }
 
-// Zmiana typu pytania czyści stare opcje i ustawia odpowiednie domyślne
 const changeQuestionType = (index) => {
     const q = questions.value[index];
     if (q.question_type === 'ABC') {
@@ -157,10 +145,7 @@ const saveTest = async () => {
 
   try {
     let currentTestId = testId
-
-    // Przypisanie konfiguracji punktacji do obiektu wysyłanego do API
     testData.value.scoringMethod = scoringMethod.value
-    // Wysyłany aktualny stan progów z edytora
     testData.value.scoreThresholds = scoreThresholds.value
 
     if (isEditMode.value) {
@@ -216,14 +201,24 @@ const saveTest = async () => {
       <label>Opis</label>
       <textarea v-model="testData.description"></textarea>
 
-      <div class="checkbox-wrapper">
-        <input type="checkbox" id="isPublic" v-model="testData.is_public" />
-        <label for="isPublic" class="inline-label">Test Publiczny (dostępny dla każdego, kto ma link)</label>
-    </div>
+      <div class="settings-grid">
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="isPublic" v-model="testData.is_public" />
+            <label for="isPublic" class="inline-label">
+                Test Publiczny <small>(widoczny na liście)</small>
+            </label>
+        </div>
+        
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="showAnswers" v-model="testData.show_answers" />
+            <label for="showAnswers" class="inline-label">
+                Pokaż odpowiedzi <small>(po rozwiązaniu)</small>
+            </label>
+        </div>
+      </div>
     
     <section class="scoring-section">
       <h3>Sposób punktowania</h3>
-
       <label class="inline-label">Wybierz sposób:</label>
       <select v-model="scoringMethod">
         <option value="standard">Domyślna (2.0 → 5.0, nieedytowalna)</option>
@@ -232,15 +227,11 @@ const saveTest = async () => {
       
       <div class="mt-4">
         <h4>Progi ocen</h4>
-
-        <!-- Widok nieedytowalny, gdy standard -->
         <ul v-if="scoringMethod === 'standard'">
         <li v-for="(thr, idx) in scoreThresholds" :key="thr.grade + '-' + idx">
             Ocena {{ thr.grade }} — ≥ {{ thr.min }} %
         </li>
         </ul>
-
-        <!-- Widok edytowalny, gdy custom -->
         <div v-else>
         <div v-for="(thr, idx) in scoreThresholds" :key="idx" class="threshold-row">
           <input type="text" v-model="thr.grade" placeholder="np. 5.0" />
@@ -263,18 +254,15 @@ const saveTest = async () => {
       <div v-for="(question, qIndex) in questions" :key="qIndex" class="question-card">
         <div class="q-top-row">
             <span class="q-number">#{{ qIndex + 1 }}</span>
-            
             <select v-model="question.question_type" @change="changeQuestionType(qIndex)" class="type-select">
                 <option value="ABC">Wybór (A, B, C...)</option>
                 <option value="FILL">Uzupełnianie luki</option>
                 <option value="OPEN">Otwarte (Ręczna ocena)</option>
             </select>
-
             <div class="points-input-group">
                 <label>Pkt:</label>
                 <input type="number" v-model="question.points" min="1" class="points-input" />
             </div>
-
             <button class="btn-danger small" @click="removeQuestion(qIndex)">🗑️</button>
         </div>
         
@@ -291,16 +279,13 @@ const saveTest = async () => {
 
         <div v-else-if="question.question_type === 'FILL'" class="fill-box">
             <p class="sub-label">Poprawna odpowiedź (do automatycznego sprawdzenia):</p>
-            <input v-model="question.options[0].text" placeholder="Wpisz tutaj słowo, które uczeń ma wpisać..." class="correct-answer-input"/>
-            <p class="hint">System sprawdzi dokładne dopasowanie (wielkość liter zazwyczaj jest ignorowana).</p>
+            <input v-model="question.options[0].text" placeholder="Wpisz tutaj słowo..." class="correct-answer-input"/>
         </div>
 
         <div v-else-if="question.question_type === 'OPEN'" class="open-box">
-            <p class="info-text">ℹ️ To jest pytanie otwarte. Uczeń wpisze dłuższy tekst. Te pytania wymagają ręcznego sprawdzenia przez nauczyciela w panelu wyników.</p>
+            <p class="info-text">ℹ️ Pytanie otwarte (ręczna ocena).</p>
         </div>
-
       </div>
-
       <button class="nav-btn add-q-btn" @click="addQuestion">➕ Dodaj kolejne pytanie</button>
     </div>
 
@@ -336,11 +321,9 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 .points-input { width: 60px; margin: 0; text-align: center; }
 
 .q-input-text { font-size: 1.1rem; font-weight: 500; margin-bottom: 15px; border-color: #2ecc71; }
-
 .sub-label { font-size: 0.85rem; color: var(--color-text-light-2); margin-bottom: 8px; }
 .option-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .checkbox-correct { width: 24px; height: 24px; margin: 0; cursor: pointer; accent-color: #2ecc71; }
-
 .correct-answer-input { border: 2px dashed #2ecc71; }
 .hint, .info-text { font-size: 0.85rem; color: var(--color-text-light-2); margin-top: 5px; font-style: italic; }
 
@@ -352,6 +335,10 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 .btn-danger:hover { background: #e74c3c; color: white; }
 .btn-text { background: none; border: none; color: #2ecc71; cursor: pointer; margin-top: 5px; font-size: 0.9rem; font-weight: 600; }
 .err { color: #e74c3c; text-align: center; margin-top: 10px; }
-.inline-label { display: inline; margin-left: 8px; cursor: pointer; }
-.checkbox-wrapper { margin-top: 15px; display: flex; align-items: center; }
+
+/* Nowe style */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+.checkbox-wrapper { display: flex; align-items: center; }
+.inline-label { display: inline; margin-left: 8px; cursor: pointer; margin-top: 0; }
+.inline-label small { color: var(--color-text-light-2); font-weight: normal; }
 </style>
