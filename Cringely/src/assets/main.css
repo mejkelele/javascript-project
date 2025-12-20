@@ -69,6 +69,10 @@ button {
   transition: 0.25s;
 }
 
+.auth-card button {
+  margin-top: 20px;
+}
+
 button:hover {
   background: #27ae60;
   /* box-shadow: 0 0 18px #2ecc71; */
@@ -585,7 +589,7 @@ button:disabled {
 .question-card select:focus {
   outline: none;
   border-color: #2ecc71;
-  box-shadow: 0 0 14px rgba(46, 204, 113, 0.6);
+  /* box-shadow: 0 0 14px rgba(46, 204, 113, 0.6); */
 }
 
 .create-page select {
@@ -618,19 +622,25 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 1.4rem;
+  margin: 1rem 0px
 }
 
 .checkbox-wrapper input[type='checkbox'] {
   width: 18px;
   height: 18px;
   accent-color: #2ecc71;
+  margin: 0;
+}
+.checkbox-wrapper label {
+  margin: 0;
+  white-space: nowrap;
 }
 
 .inline-label {
   font-size: 0.95rem;
   color: #e0e0e0;
   cursor: pointer;
+  justify-content: center;
 }
 
 /* =========================================================
@@ -896,6 +906,7 @@ button:disabled {
   color: #bdbdbd;
   margin-top: 8px;
   font-style: italic;
+  text-align: start;
 }
 
 .open-box .info-text {
