@@ -27,6 +27,16 @@ onMounted(async () => {
   try {
     const { data } = await api.get(`/tests/public/${accessCode}`)
     test.value = data
+    
+    // Inicjalizacja pustych tablic dla checkboxów (wielokrotnego wyboru)
+    if (test.value && test.value.Questions) {
+        test.value.Questions.forEach(q => {
+            if (q.is_multiple_choice) {
+                answers.value[q.id] = []
+            }
+        });
+    }
+
   } catch (e) {
     error.value = 'Nie znaleziono testu lub jest on prywatny.'
   } finally {
@@ -110,10 +120,34 @@ const chartOptions = {
     plugins: { legend: { position: 'bottom' } }
 }
 
-// Helper: Sprawdzanie detali odpowiedzi (jeśli dostępne)
 const getResultForQuestion = (qId) => {
     if (!submissionResult.value?.resultsDetails) return null;
     return submissionResult.value.resultsDetails[qId];
+}
+
+// Helper do sprawdzania czy user zaznaczył opcję (dla widoku wyników)
+const isOptionSelected = (qId, optId) => {
+    const res = getResultForQuestion(qId);
+    if (!res) return false;
+    
+    // Jeśli to tablica (checkbox)
+    if (Array.isArray(res.userAnswer)) {
+        return res.userAnswer.map(String).includes(String(optId));
+    }
+    // Jeśli to pojedyncza wartość (radio)
+    return String(res.userAnswer) === String(optId);
+}
+
+const isOptionCorrect = (qId, optId) => {
+    const res = getResultForQuestion(qId);
+    if (!res) return false;
+
+    // Checkbox (wiele poprawnych)
+    if (res.correctOptionIds && Array.isArray(res.correctOptionIds)) {
+        return res.correctOptionIds.map(String).includes(String(optId));
+    }
+    // Radio (jeden poprawny)
+    return String(res.correctOptionId) === String(optId);
 }
 </script>
 
@@ -196,13 +230,13 @@ const getResultForQuestion = (qId) => {
                         <div v-for="opt in q.QuestionOptions" :key="opt.id" 
                              class="review-opt"
                              :class="{
-                                'user-selected': getResultForQuestion(q.id)?.userAnswer == opt.id,
-                                'correct-answer': getResultForQuestion(q.id)?.correctOptionId == opt.id
+                                'user-selected': isOptionSelected(q.id, opt.id),
+                                'correct-answer': isOptionCorrect(q.id, opt.id)
                              }">
                              
-                             <span v-if="getResultForQuestion(q.id)?.userAnswer == opt.id && getResultForQuestion(q.id)?.correctOptionId == opt.id">👏 Twoja poprawna odpowiedź: </span>
-                             <span v-else-if="getResultForQuestion(q.id)?.userAnswer == opt.id">❌ Twoja odpowiedź: </span>
-                             <span v-else-if="getResultForQuestion(q.id)?.correctOptionId == opt.id">✅ Poprawna odpowiedź: </span>
+                             <span v-if="isOptionSelected(q.id, opt.id) && isOptionCorrect(q.id, opt.id)">👏 Twoja poprawna: </span>
+                             <span v-else-if="isOptionSelected(q.id, opt.id)">❌ Twoja błędna: </span>
+                             <span v-else-if="isOptionCorrect(q.id, opt.id)">✅ Poprawna: </span>
                              
                              {{ opt.text }}
                         </div>
@@ -248,13 +282,25 @@ const getResultForQuestion = (qId) => {
             <span class="q-idx">{{ index + 1 }}.</span>
             <span class="q-text">{{ q.text }}</span>
             <span class="q-pts">({{ q.points }} pkt)</span>
+            <span v-if="q.is_multiple_choice" class="multi-badge">(Wielokrotny wybór)</span>
           </div>
 
           <div v-if="q.question_type === 'ABC'" class="opts-group">
-            <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label" :class="{ selected: answers[q.id] === opt.id }">
-              <input type="radio" :name="'q' + q.id" :value="opt.id" v-model="answers[q.id]" />
-              {{ opt.text }}
-            </label>
+            
+            <template v-if="q.is_multiple_choice">
+                <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label" :class="{ selected: answers[q.id]?.includes(opt.id) }">
+                    <input type="checkbox" :value="opt.id" v-model="answers[q.id]" />
+                    {{ opt.text }}
+                </label>
+            </template>
+
+            <template v-else>
+                <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label" :class="{ selected: answers[q.id] === opt.id }">
+                    <input type="radio" :name="'q' + q.id" :value="opt.id" v-model="answers[q.id]" />
+                    {{ opt.text }}
+                </label>
+            </template>
+
           </div>
 
           <div v-else-if="q.question_type === 'FILL'" class="fill-group">
@@ -319,7 +365,7 @@ const getResultForQuestion = (qId) => {
 .review-opt { padding: 8px; border-radius: 6px; margin-bottom: 4px; border: 1px solid transparent; }
 .review-opt.user-selected { border-color: #e74c3c; background: rgba(231, 76, 60, 0.1); }
 .review-opt.correct-answer { border-color: #2ecc71; background: rgba(46, 204, 113, 0.1); }
-.review-opt.user-selected.correct-answer { border-color: #2ecc71; background: rgba(46, 204, 113, 0.2); } /* Jeśli trafił */
+.review-opt.user-selected.correct-answer { border-color: #2ecc71; background: rgba(46, 204, 113, 0.2); }
 
 .correction-text { color: #2ecc71; margin-top: 5px; }
 .user-open-ans { font-style: italic; color: var(--color-text-light-1); border-left: 3px solid #ccc; padding-left: 10px; }
@@ -343,6 +389,8 @@ const getResultForQuestion = (qId) => {
 .q-head { display: flex; gap: 10px; font-weight: bold; font-size: 1.1rem; margin-bottom: 15px; }
 .q-text { flex: 1; }
 .q-pts { color: var(--color-text-light-2); font-size: 0.9rem; }
+.multi-badge { font-size: 0.8rem; color: #3498db; font-weight: normal; margin-left: 5px; }
+
 .opts-group { display: flex; flex-direction: column; gap: 8px; }
 .opt-label { padding: 10px; border: 2px solid var(--color-border); border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; gap: 10px; align-items: center; }
 .opt-label:hover { background: var(--color-background-mute); }

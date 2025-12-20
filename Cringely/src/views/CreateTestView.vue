@@ -20,7 +20,7 @@ const testData = ref({
   description: '',
   access_code: '',
   is_public: true,
-  show_answers: true // Domyślnie włączone
+  show_answers: true
 })
 
 const defaultThresholds = [
@@ -67,10 +67,7 @@ onMounted(async () => {
         try {
             const { data } = await api.get(`/tests/${testId}`)
             testData.value = { ...data }
-            
-            // Upewnij się, że pole show_answers jest ustawione (dla starych testów)
             if (testData.value.show_answers === undefined) testData.value.show_answers = true;
-
             scoringMethod.value = data.scoringMethod || "standard"
             
             if (data.scoreThresholds && Array.isArray(data.scoreThresholds) && data.scoreThresholds.length > 0) {
@@ -83,6 +80,8 @@ onMounted(async () => {
                 id: q.id,
                 text: q.text,
                 question_type: q.question_type || 'ABC',
+                // Wczytujemy czy wielokrotny
+                is_multiple_choice: q.is_multiple_choice || false,
                 points: q.points,
                 options: q.QuestionOptions.map(o => ({ text: o.text, is_correct: o.is_correct }))
             }))
@@ -105,6 +104,7 @@ const addQuestion = () => {
     id: null,
     text: '',
     question_type: 'ABC',
+    is_multiple_choice: false, // domyślnie false
     points: 1,
     options: [{ text: '', is_correct: false }, { text: '', is_correct: false }]
   })
@@ -163,6 +163,8 @@ const saveTest = async () => {
             test_id: currentTestId,
             text: q.text,
             question_type: q.question_type,
+            // Wysyłamy is_multiple_choice
+            is_multiple_choice: q.is_multiple_choice,
             points: q.points,
             options: q.question_type === 'OPEN' ? [] : q.options.filter(o => o.text.trim() !== '')
         }
@@ -208,7 +210,6 @@ const saveTest = async () => {
                 Test Publiczny <small>(widoczny na liście)</small>
             </label>
         </div>
-        
         <div class="checkbox-wrapper">
             <input type="checkbox" id="showAnswers" v-model="testData.show_answers" />
             <label for="showAnswers" class="inline-label">
@@ -269,6 +270,14 @@ const saveTest = async () => {
         <input v-model="question.text" placeholder="Treść pytania..." class="q-input-text"/>
 
         <div v-if="question.question_type === 'ABC'" class="options-list">
+            
+            <div class="multi-choice-toggle">
+                <label>
+                    <input type="checkbox" v-model="question.is_multiple_choice" />
+                    Wielokrotny wybór (Checkbox)
+                </label>
+            </div>
+
             <p class="sub-label">Opcje odpowiedzi (zaznacz poprawną):</p>
             <div v-for="(opt, oIndex) in question.options" :key="oIndex" class="option-row">
                 <input type="checkbox" v-model="opt.is_correct" class="checkbox-correct"/>
@@ -341,4 +350,7 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 .checkbox-wrapper { display: flex; align-items: center; }
 .inline-label { display: inline; margin-left: 8px; cursor: pointer; margin-top: 0; }
 .inline-label small { color: var(--color-text-light-2); font-weight: normal; }
+
+.multi-choice-toggle { margin-bottom: 10px; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.05); display: inline-block; }
+.multi-choice-toggle label { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer; }
 </style>

@@ -30,7 +30,7 @@ router.get("/public/leaderboard/:code", async (req, res) => {
     }
 });
 
-// [GET] /api/tests/recent
+// [GET] /api/tests/recent - 3 najnowsze publiczne testy
 router.get("/recent", async (req, res) => {
     try {
         const tests = await Test.findAll({
@@ -56,7 +56,7 @@ router.get("/public/:code", async (req, res) => {
             include: [
                 {
                     model: Question,
-                    attributes: ['id', 'text', 'question_type', 'points'],
+                    attributes: ['id', 'text', 'question_type', 'points', 'is_multiple_choice'],
                     include: [{ model: QuestionOption, attributes: ['id', 'text'] }]
                 },
                 { model: User, attributes: ['name'] }
@@ -73,7 +73,7 @@ router.get("/public/:code", async (req, res) => {
     }
 });
 
-// [GET] /api/tests
+// [GET] /api/tests (Moje testy)
 router.get("/", requireAuth, async (req, res) => {
   const user_id = req.session.userId;
   const tests = await Test.findAll({ 
@@ -83,7 +83,7 @@ router.get("/", requireAuth, async (req, res) => {
   res.json(tests);
 });
 
-// [GET] /api/tests/:id/stats
+// [GET] /api/tests/:id/stats — Statystyki dla autora (ROZSZERZONE)
 router.get("/:id/stats", requireAuth, async (req, res) => {
     const { id } = req.params;
     const userId = req.session.userId;
@@ -91,23 +91,25 @@ router.get("/:id/stats", requireAuth, async (req, res) => {
     try {
         const test = await Test.findOne({ 
             where: { id, user_id: userId },
-            include: [{ model: Question, attributes: ['id', 'text', 'points', 'question_type'] }] 
+            include: [{ model: Question, attributes: ['points'] }] 
         });
 
-        if (!test) return res.status(403).json({ error: "Brak dostępu lub test nie istnieje" });
+        if (!test) return res.status(403).json({ error: "Brak dostępu" });
 
+        // Pobieramy sesje WRAZ z odpowiedziami i punktami
         const sessions = await TestSession.findAll({
             where: { test_id: id },
             include: [
                 { 
                     model: Answer,
-                    include: [{ model: Question, attributes: ['id'] }] 
+                    include: [{ model: Question, attributes: ['text', 'question_type', 'points'] }] 
                 }
             ],
             order: [['started_at', 'DESC']]
         });
 
         const totalMaxPoints = test.Questions.reduce((sum, q) => sum + (q.points || 0), 0);
+
         const count = sessions.length;
         const scores = sessions.map(s => s.score || 0);
         const avgScore = count > 0 ? (scores.reduce((a, b) => a + b, 0) / count).toFixed(1) : 0;
@@ -120,8 +122,7 @@ router.get("/:id/stats", requireAuth, async (req, res) => {
             count,
             avgScore,
             maxScore,
-            sessions,
-            questions: test.Questions 
+            sessions
         });
     } catch (e) {
         console.error(e);
@@ -149,9 +150,13 @@ router.get("/:id", requireAuth, async (req, res) => {
 router.post("/", requireAuth, async (req, res) => {
   const user_id = req.session.userId;
   const { 
-      title, description, access_code, 
-      is_public, show_answers, // <--- show_answers
-      scoringMethod, scoreThresholds 
+      title, 
+      description, 
+      access_code, 
+      is_public, 
+      show_answers,
+      scoringMethod, 
+      scoreThresholds, 
   } = req.body || {};
   
   if (!title || !access_code) return res.status(400).json({ error: "Brak wymaganych pól." });
@@ -163,7 +168,7 @@ router.post("/", requireAuth, async (req, res) => {
         description, 
         access_code, 
         is_public: is_public ?? true, 
-        show_answers: show_answers ?? true, // <--- Zapisujemy
+        show_answers: show_answers ?? true,
         scoringMethod: scoringMethod || "standard",
         scoreThresholds: scoreThresholds || [], 
     });
@@ -192,9 +197,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         test.description = description;
         test.is_public = is_public;
         
-        // Aktualizacja show_answers
         if (show_answers !== undefined) test.show_answers = show_answers;
-        
         if (scoringMethod) test.scoringMethod = scoringMethod;
         if (scoreThresholds) test.scoreThresholds = scoreThresholds;
 
@@ -206,7 +209,7 @@ router.put("/:id", requireAuth, async (req, res) => {
     }
 });
 
-// [POST] /api/tests/solve/:code
+// [POST] /api/tests/solve/:code — Przesyłanie rozwiązań (AUTO-OCENIANIE + PUNKTY)
 router.post("/solve/:code", async (req, res) => {
     const { code } = req.params;
     const { guest_name, answers } = req.body; 
@@ -240,24 +243,39 @@ router.post("/solve/:code", async (req, res) => {
         let pendingCount = 0;
 
         const savedAnswers = [];
-        const resultsDetails = {}; // Tutaj zbieramy info o odpowiedziach dla frontendu
+        const resultsDetails = {}; 
 
         for (const question of test.Questions) {
             const userAnswer = answers[question.id]; 
             let isCorrect = false; 
-            let pointsEarned = 0;
+            let pointsEarned = 0; // Ile punktów zdobył za to pytanie
 
             // --- SPRAWDZANIE ODPOWIEDZI ---
-            let correctOptionId = null;
+            let correctOptionId = null; 
+            let correctOptionIds = [];  
             let correctText = null;
 
             if (question.question_type === 'ABC') {
-                // Znajdź poprawną opcję (żeby zwrócić uczniowi, jeśli allowed)
-                const correctOpt = question.QuestionOptions.find(o => o.is_correct);
-                if (correctOpt) correctOptionId = correctOpt.id;
+                if (question.is_multiple_choice) {
+                    // Wielokrotny
+                    const correctOpts = question.QuestionOptions.filter(o => o.is_correct).map(o => o.id);
+                    correctOptionIds = correctOpts;
+                    const userSelectedIds = Array.isArray(userAnswer) ? userAnswer.map(Number) : (userAnswer ? [Number(userAnswer)] : []);
 
-                const selectedOption = question.QuestionOptions.find(o => o.id == userAnswer);
-                if (selectedOption && selectedOption.is_correct) isCorrect = true;
+                    const userSet = new Set(userSelectedIds);
+                    const correctSet = new Set(correctOpts);
+                    
+                    if (userSet.size === correctSet.size && [...userSet].every(x => correctSet.has(x))) {
+                        isCorrect = true;
+                    }
+                } else {
+                    // Jednokrotny
+                    const correctOpt = question.QuestionOptions.find(o => o.is_correct);
+                    if (correctOpt) correctOptionId = correctOpt.id;
+
+                    const selectedOption = question.QuestionOptions.find(o => o.id == userAnswer);
+                    if (selectedOption && selectedOption.is_correct) isCorrect = true;
+                }
             } 
             else if (question.question_type === 'FILL') {
                 correctText = question.QuestionOptions[0]?.text || "";
@@ -270,33 +288,38 @@ router.post("/solve/:code", async (req, res) => {
                 requiresGrading = true;
             }
             
-            // --- PUNKTACJA ---
+            // --- PUNKTACJA (AUTOMATYCZNA) ---
             if (isCorrect === true) {
-                pointsEarned = question.points;
+                pointsEarned = question.points; // Max pkt za pytanie
                 totalScore += pointsEarned;
                 correctCount++;
             } else if (isCorrect === false) {
+                pointsEarned = 0;
                 incorrectCount++;
             } else {
+                pointsEarned = 0; // Dla OPEN na razie 0, nauczyciel zmieni
                 pendingCount++; 
             }
             maxPoints += question.points;
 
+            const answerTextToSave = Array.isArray(userAnswer) ? JSON.stringify(userAnswer) : String(userAnswer || '');
+
             savedAnswers.push({
                 session_id: session.id,
                 question_id: question.id,
-                answer_text: String(userAnswer || ''),
-                is_correct: isCorrect
+                answer_text: answerTextToSave,
+                is_correct: isCorrect,
+                points_earned: pointsEarned 
             });
 
-            // --- BUDOWANIE RAPORTU DLA UCZNIA (jeśli włączone) ---
             if (test.show_answers) {
                 resultsDetails[question.id] = {
                     isCorrect: isCorrect,
-                    pointsEarned: isCorrect === true ? pointsEarned : 0,
-                    correctOptionId: correctOptionId, // dla ABC
-                    correctText: correctText,         // dla FILL
-                    userAnswer: userAnswer            // to co wpisał
+                    pointsEarned: pointsEarned,
+                    correctOptionId: correctOptionId,
+                    correctOptionIds: correctOptionIds,
+                    correctText: correctText,
+                    userAnswer: userAnswer 
                 };
             }
         }
@@ -305,11 +328,7 @@ router.post("/solve/:code", async (req, res) => {
         session.score = totalScore;
         await session.save();
 
-        // Średnia
-        const allSessions = await TestSession.findAll({ 
-            where: { test_id: test.id },
-            attributes: ['score']
-        });
+        const allSessions = await TestSession.findAll({ where: { test_id: test.id }, attributes: ['score'] });
         const totalSum = allSessions.reduce((sum, s) => sum + s.score, 0);
         const avgScore = allSessions.length > 0 ? (totalSum / allSessions.length).toFixed(1) : 0;
 
@@ -326,7 +345,6 @@ router.post("/solve/:code", async (req, res) => {
                 averageScore: avgScore,
                 totalQuestions: test.Questions.length
             },
-            // Zwracamy szczegóły tylko jeśli autor pozwolił
             resultsDetails: test.show_answers ? resultsDetails : null
         });
 
@@ -336,10 +354,11 @@ router.post("/solve/:code", async (req, res) => {
     }
 });
 
-// [POST] /api/tests/sessions/:sessionId/grade
+// [POST] /api/tests/sessions/:sessionId/grade — Ręczne ocenianie (AKTUALIZACJA)
 router.post("/sessions/:sessionId/grade", requireAuth, async (req, res) => {
     const { sessionId } = req.params;
     const { grades } = req.body; 
+    // grades: { answerId: liczba_punktow, ... }
 
     try {
         const session = await TestSession.findByPk(sessionId, {
@@ -347,18 +366,26 @@ router.post("/sessions/:sessionId/grade", requireAuth, async (req, res) => {
         });
         if (!session) return res.status(404).json({ error: "Sesja nie istnieje" });
 
+        // 1. Aktualizuj punkty w odpowiedziach
         for (const ans of session.Answers) {
             if (grades[ans.id] !== undefined) {
-                ans.is_correct = grades[ans.id];
+                const newPoints = parseFloat(grades[ans.id]);
+                
+                ans.points_earned = newPoints;
+                
+                // Automatycznie ustawiamy flagę is_correct
+                if (newPoints === ans.Question.points) ans.is_correct = true;
+                else if (newPoints === 0) ans.is_correct = false;
+                else ans.is_correct = false; // "Partial" = technicznie niepoprawne, ale z punktami
+                
                 await ans.save();
             }
         }
 
+        // 2. Przelicz wynik całej sesji
         let newScore = 0;
         for (const ans of session.Answers) {
-            if (ans.is_correct === true) {
-                newScore += ans.Question.points; 
-            }
+            newScore += (ans.points_earned || 0);
         }
 
         session.score = newScore;
