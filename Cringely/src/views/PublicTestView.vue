@@ -28,7 +28,7 @@ onMounted(async () => {
     const { data } = await api.get(`/tests/public/${accessCode}`)
     test.value = data
     
-    // Inicjalizacja pustych tablic dla checkboxów (wielokrotnego wyboru)
+    // Inicjalizacja pustych tablic dla checkboxów
     if (test.value && test.value.Questions) {
         test.value.Questions.forEach(q => {
             if (q.is_multiple_choice) {
@@ -69,7 +69,11 @@ const submitTest = async () => {
     submissionResult.value = data 
     await fetchLeaderboard()
   } catch (e) {
-    alert('Wystąpił błąd podczas wysyłania odpowiedzi.')
+    if (e.response && e.response.status === 403) {
+        alert(e.response.data.error || "Wyczerpano limit podejść.")
+    } else {
+        alert('Wystąpił błąd podczas wysyłania odpowiedzi.')
+    }
     console.error(e)
   } finally {
     isSubmitting.value = false
@@ -125,28 +129,26 @@ const getResultForQuestion = (qId) => {
     return submissionResult.value.resultsDetails[qId];
 }
 
-// Helper do sprawdzania czy user zaznaczył opcję (dla widoku wyników)
 const isOptionSelected = (qId, optId) => {
     const res = getResultForQuestion(qId);
     if (!res) return false;
     
-    // Jeśli to tablica (checkbox)
     if (Array.isArray(res.userAnswer)) {
         return res.userAnswer.map(String).includes(String(optId));
     }
-    // Jeśli to pojedyncza wartość (radio)
     return String(res.userAnswer) === String(optId);
 }
 
+// --- POPRAWKA BŁĘDU ---
 const isOptionCorrect = (qId, optId) => {
     const res = getResultForQuestion(qId);
     if (!res) return false;
 
-    // Checkbox (wiele poprawnych)
-    if (res.correctOptionIds && Array.isArray(res.correctOptionIds)) {
+    // Checkbox (wiele poprawnych) - sprawdzamy tylko gdy tablica NIE jest pusta
+    if (res.correctOptionIds && Array.isArray(res.correctOptionIds) && res.correctOptionIds.length > 0) {
         return res.correctOptionIds.map(String).includes(String(optId));
     }
-    // Radio (jeden poprawny)
+    // Fallback dla Radio (jednokrotny)
     return String(res.correctOptionId) === String(optId);
 }
 </script>
@@ -163,6 +165,10 @@ const isOptionCorrect = (qId, optId) => {
           <h1 class="public-title">{{ test.title }}</h1>
           <p class="public-author">Autor: {{ test.User?.name || 'Nieznany' }}</p>
           <p class="desc">{{ test.description }}</p>
+
+          <div v-if="test.attempts_limit > 0" class="limit-info">
+             ⚠️ Ten test ma limit podejść: <strong>{{ test.attempts_limit }}</strong>
+          </div>
 
           <div class="guest-form">
             <template v-if="!auth.isAuthenticated">
@@ -286,21 +292,18 @@ const isOptionCorrect = (qId, optId) => {
           </div>
 
           <div v-if="q.question_type === 'ABC'" class="opts-group">
-            
             <template v-if="q.is_multiple_choice">
                 <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label" :class="{ selected: answers[q.id]?.includes(opt.id) }">
                     <input type="checkbox" :value="opt.id" v-model="answers[q.id]" />
                     {{ opt.text }}
                 </label>
             </template>
-
             <template v-else>
                 <label v-for="opt in q.QuestionOptions" :key="opt.id" class="opt-label" :class="{ selected: answers[q.id] === opt.id }">
                     <input type="radio" :name="'q' + q.id" :value="opt.id" v-model="answers[q.id]" />
                     {{ opt.text }}
                 </label>
             </template>
-
           </div>
 
           <div v-else-if="q.question_type === 'FILL'" class="fill-group">
@@ -329,6 +332,8 @@ const isOptionCorrect = (qId, optId) => {
 .public-title { font-size: 2.5rem; color: #2ecc71; margin-bottom: 0.5rem; }
 .public-author { color: var(--color-text-light-2); margin-bottom: 2rem; }
 .desc { margin-bottom: 2rem; font-style: italic; }
+
+.limit-info { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffeeba; }
 
 .guest-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto; }
 .guest-form input { padding: 12px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text); font-size: 1rem; }

@@ -9,10 +9,11 @@ const Test = sequelize.define(
     description: { type: DataTypes.TEXT },
     access_code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
     is_public: { type: DataTypes.BOOLEAN, defaultValue: true },
+    show_answers: { type: DataTypes.BOOLEAN, defaultValue: true },
     
-    show_answers: { 
-        type: DataTypes.BOOLEAN, 
-        defaultValue: true 
+    attempts_limit: { 
+      type: DataTypes.INTEGER, 
+      defaultValue: 0 
     },
 
     scoringMethod: {
