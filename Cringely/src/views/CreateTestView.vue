@@ -20,9 +20,9 @@ const testData = ref({
   description: '',
   access_code: '',
   is_public: true,
+  show_answers: true
 })
 
-// Domyślne progi
 const defaultThresholds = [
   { grade: '5.0', min: 90 },
   { grade: '4.5', min: 80 },
@@ -32,21 +32,17 @@ const defaultThresholds = [
   { grade: '2.0', min: 0 },
 ]
 
-const scoringMethod = ref('standard')
-
+const scoringMethod = ref("standard")
 const scoreThresholds = ref(JSON.parse(JSON.stringify(defaultThresholds)))
-
 const questions = ref([])
 const loading = ref(false)
 const error = ref(null)
 
-// Link do udostępnienia (widoczny tylko gdy test ma kod)
 const shareLink = computed(() => {
   if (!testData.value.access_code) return ''
   return `${window.location.origin}/t/${testData.value.access_code}`
 })
 
-// Suma punktów
 const totalPoints = computed(() => {
   return questions.value.reduce((sum, q) => sum + (parseInt(q.points) || 0), 0)
 })
@@ -60,59 +56,47 @@ const generateAccessCode = () => {
   return `${cleanTitle}-${randomPart}`
 }
 
-// Dodawanie nowego progu
-const addThreshold = () => {
-  scoreThresholds.value.push({ grade: '', min: 0 })
-}
-
-// Usuwanie progu
-const removeThreshold = (index) => {
-  scoreThresholds.value.splice(index, 1)
-}
+const addThreshold = () => { scoreThresholds.value.push({ grade: '', min: 0 }) }
+const removeThreshold = (index) => { scoreThresholds.value.splice(index, 1) }
 
 onMounted(async () => {
-  // Jeśli nie jesteśmy zalogowani, nie pobieramy danych (przekierowanie zadziała wyżej)
-  if (!auth.isAuthenticated) return
+    if (!auth.isAuthenticated) return
 
-  if (isEditMode.value) {
-    loading.value = true
-    try {
-      const { data } = await api.get(`/tests/${testId}`)
-      testData.value = { ...data } // Kopiujemy dane
-
-      scoringMethod.value = data.scoringMethod || 'standard'
-
-      // Jeśli są zapisane progi, użyj ich. Jeśli nie (lub pusta tablica), użyj domyślnych.
-      if (
-        data.scoreThresholds &&
-        Array.isArray(data.scoreThresholds) &&
-        data.scoreThresholds.length > 0
-      ) {
-        scoreThresholds.value = data.scoreThresholds
-      } else {
-        scoreThresholds.value = JSON.parse(JSON.stringify(defaultThresholds))
-      }
-
-      questions.value = data.Questions.map((q) => ({
-        id: q.id,
-        text: q.text,
-        question_type: q.question_type || 'ABC',
-        points: q.points,
-        options: q.QuestionOptions.map((o) => ({ text: o.text, is_correct: o.is_correct })),
-      }))
-    } catch (e) {
-      // Jeśli błąd 401/403, też wyrzuć do logowania
-      if (e.response && (e.response.status === 401 || e.response.status === 403)) {
-        router.push('/login')
-      } else {
-        error.value = 'Nie udało się załadować testu.'
-      }
-    } finally {
-      loading.value = false
+    if (isEditMode.value) {
+        loading.value = true
+        try {
+            const { data } = await api.get(`/tests/${testId}`)
+            testData.value = { ...data }
+            if (testData.value.show_answers === undefined) testData.value.show_answers = true;
+            scoringMethod.value = data.scoringMethod || "standard"
+            
+            if (data.scoreThresholds && Array.isArray(data.scoreThresholds) && data.scoreThresholds.length > 0) {
+                scoreThresholds.value = data.scoreThresholds
+            } else {
+                scoreThresholds.value = JSON.parse(JSON.stringify(defaultThresholds))
+            }
+            
+            questions.value = data.Questions.map(q => ({
+                id: q.id,
+                text: q.text,
+                question_type: q.question_type || 'ABC',
+                // Wczytujemy czy wielokrotny
+                is_multiple_choice: q.is_multiple_choice || false,
+                points: q.points,
+                options: q.QuestionOptions.map(o => ({ text: o.text, is_correct: o.is_correct }))
+            }))
+        } catch (e) {
+            if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+                router.push('/login')
+            } else {
+                error.value = "Nie udało się załadować testu."
+            }
+        } finally {
+            loading.value = false
+        }
+    } else {
+        addQuestion()
     }
-  } else {
-    addQuestion()
-  }
 })
 
 const addQuestion = () => {
@@ -120,6 +104,7 @@ const addQuestion = () => {
     id: null,
     text: '',
     question_type: 'ABC',
+    is_multiple_choice: false, // domyślnie false
     points: 1,
     options: [
       { text: '', is_correct: false },
@@ -128,7 +113,6 @@ const addQuestion = () => {
   })
 }
 
-// Zmiana typu pytania czyści stare opcje i ustawia odpowiednie domyślne
 const changeQuestionType = (index) => {
   const q = questions.value[index]
   if (q.question_type === 'ABC') {
@@ -175,10 +159,7 @@ const saveTest = async () => {
 
   try {
     let currentTestId = testId
-
-    // Przypisanie konfiguracji punktacji do obiektu wysyłanego do API
     testData.value.scoringMethod = scoringMethod.value
-    // Wysyłany aktualny stan progów z edytora
     testData.value.scoreThresholds = scoreThresholds.value
 
     if (isEditMode.value) {
@@ -192,13 +173,15 @@ const saveTest = async () => {
       if (!q.text.trim()) continue
       if (q.question_type === 'FILL' && !q.options[0]?.text) continue
 
-      const payload = {
-        test_id: currentTestId,
-        text: q.text,
-        question_type: q.question_type,
-        points: q.points,
-        options: q.question_type === 'OPEN' ? [] : q.options.filter((o) => o.text.trim() !== ''),
-      }
+        const payload = {
+            test_id: currentTestId,
+            text: q.text,
+            question_type: q.question_type,
+            // Wysyłamy is_multiple_choice
+            is_multiple_choice: q.is_multiple_choice,
+            points: q.points,
+            options: q.question_type === 'OPEN' ? [] : q.options.filter(o => o.text.trim() !== '')
+        }
 
       if (q.id) await api.put(`/questions/${q.id}`, payload)
       else await api.post('/questions', payload)
@@ -233,43 +216,48 @@ const saveTest = async () => {
 -->
       <label>Opis</label>
       <textarea v-model="testData.description"></textarea>
-      <div class="checkbox-wrapper">
-        <input type="checkbox" id="isPublic" v-model="testData.is_public" />
-        <label for="isPublic" class="inline-label"
-          >Test Publiczny (dostępny dla każdego, kto ma link)</label
-        >
-      </div>
 
-      <section class="scoring-section">
-        <h3>Sposób punktowania</h3>
-
-        <label class="inline-label">Wybierz sposób:</label>
-        <select v-model="scoringMethod">
-          <option value="standard">Domyślna (2.0 → 5.0, nieedytowalna)</option>
-          <option value="custom">Własna (edytowalna)</option>
-        </select>
-
-        <div class="mt-4">
-          <h4>Progi ocen</h4>
-
-          <!-- Widok nieedytowalny, gdy standard -->
-          <ul v-if="scoringMethod === 'standard'">
-            <li v-for="(thr, idx) in scoreThresholds" :key="thr.grade + '-' + idx">
-              Ocena {{ thr.grade }} — ≥ {{ thr.min }} %
-            </li>
-          </ul>
-
-          <!-- Widok edytowalny, gdy custom -->
-          <div v-else>
-            <div v-for="(thr, idx) in scoreThresholds" :key="idx" class="threshold-row">
-              <input type="text" v-model="thr.grade" placeholder="np. 5.0" />
-              <input type="number" v-model.number="thr.min" min="0" max="100" /> %
-              <button type="button" @click="removeThreshold(idx)">Usuń</button>
-            </div>
-            <button type="button" @click="addThreshold()">Dodaj próg</button>
-          </div>
+      <div class="settings-grid">
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="isPublic" v-model="testData.is_public" />
+            <label for="isPublic" class="inline-label">
+                Test Publiczny <small>(widoczny na liście)</small>
+            </label>
         </div>
-      </section>
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="showAnswers" v-model="testData.show_answers" />
+            <label for="showAnswers" class="inline-label">
+                Pokaż odpowiedzi <small>(po rozwiązaniu)</small>
+            </label>
+        </div>
+      </div>
+    
+    <section class="scoring-section">
+      <h3>Sposób punktowania</h3>
+      <label class="inline-label">Wybierz sposób:</label>
+      <select v-model="scoringMethod">
+        <option value="standard">Domyślna (2.0 → 5.0, nieedytowalna)</option>
+        <option value="custom">Własna (edytowalna)</option>
+      </select>
+      
+      <div class="mt-4">
+        <h4>Progi ocen</h4>
+        <ul v-if="scoringMethod === 'standard'">
+        <li v-for="(thr, idx) in scoreThresholds" :key="thr.grade + '-' + idx">
+            Ocena {{ thr.grade }} — ≥ {{ thr.min }} %
+        </li>
+        </ul>
+        <div v-else>
+        <div v-for="(thr, idx) in scoreThresholds" :key="idx" class="threshold-row">
+          <input type="text" v-model="thr.grade" placeholder="np. 5.0" />
+          <input type="number" v-model.number="thr.min" min="0" max="100" /> %
+          <button type="button" @click="removeThreshold(idx)">Usuń</button>
+        </div>
+        <button type="button" @click="addThreshold()">Dodaj próg</button>
+        </div>
+      </div>
+    </section>
+
     </div>
 
     <div class="form-section">
@@ -323,6 +311,20 @@ const saveTest = async () => {
         <input v-model="question.text" placeholder="Treść pytania..." class="q-input-text" />
 
         <div v-if="question.question_type === 'ABC'" class="options-list">
+            
+            <div class="multi-choice-toggle">
+                <label>
+                    <input type="checkbox" v-model="question.is_multiple_choice" />
+                    Wielokrotny wybór (Checkbox)
+                </label>
+            </div>
+
+            <p class="sub-label">Opcje odpowiedzi (zaznacz poprawną):</p>
+            <div v-for="(opt, oIndex) in question.options" :key="oIndex" class="option-row">
+                <input type="checkbox" v-model="opt.is_correct" class="checkbox-correct"/>
+                <input v-model="opt.text" placeholder="Odpowiedź..." />
+            </div>
+            <button class="btn-text" @click="addOption(qIndex)">+ Dodaj kolejną opcję</button>
           <p class="sub-label">Opcje odpowiedzi (zaznacz poprawne):</p>
           <div v-for="(opt, oIndex) in question.options" :key="oIndex" class="option-row">
             <input type="checkbox" v-model="opt.is_correct" class="checkbox-correct" />
