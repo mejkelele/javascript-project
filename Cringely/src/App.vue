@@ -24,9 +24,7 @@ const auth = useAuthStore()
 
       <template v-else>
         <RouterLink to="/profile" class="nav-user-link"><span class="nav-user">👤 {{ auth.user?.name || auth.user?.email }}</span>
-        </RouterLink>
-        <span class="nav-user">👋 {{ auth.user?.name || auth.user?.email }}</span>
-        
+        </RouterLink>        
         <button class="nav-btn" @click="auth.logout()">Wyloguj</button>
 
       </template>
