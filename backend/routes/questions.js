@@ -15,14 +15,17 @@ const checkOwnership = async (testId, userId) => {
 
 // [POST] Dodaj pytanie
 router.post('/', requireAuth, async (req, res) => {
-  const { test_id, text, question_type, options, points } = req.body;
+  // ODBIERAMY is_multiple_choice
+  const { test_id, text, question_type, options, points, is_multiple_choice } = req.body;
 
   try {
     const question = await Question.create({ 
         test_id, 
         text, 
         question_type: question_type || 'ABC',
-        points: points || 1 
+        points: points || 1,
+        // ZAPISUJEMY DO BAZY
+        is_multiple_choice: is_multiple_choice || false 
     });
 
     if (options && options.length > 0) {
@@ -39,7 +42,8 @@ router.post('/', requireAuth, async (req, res) => {
 // [PUT] Edytuj pytanie
 router.put('/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
-    const { text, options, points, question_type } = req.body; 
+    // ODBIERAMY is_multiple_choice
+    const { text, options, points, question_type, is_multiple_choice } = req.body; 
 
     try {
         const question = await Question.findByPk(id);
@@ -47,7 +51,12 @@ router.put('/:id', requireAuth, async (req, res) => {
 
         question.text = text;
         if (points) question.points = points;
-        if (question_type) question.question_type = question_type; // Aktualizacja typu
+        if (question_type) question.question_type = question_type;
+        
+        // AKTUALIZUJEMY W BAZIE
+        if (is_multiple_choice !== undefined) {
+            question.is_multiple_choice = is_multiple_choice;
+        }
         
         await question.save();
 
@@ -78,7 +87,6 @@ router.delete('/:id', requireAuth, async (req, res) => {
         const question = await Question.findByPk(id);
         if (!question) return res.status(404).json({ error: "Pytanie nie istnieje" });
 
-        // Sprawdź czy user jest właścicielem testu
         if (!await checkOwnership(question.test_id, req.session.userId)) {
             return res.status(403).json({ error: "Brak dostępu." });
         }

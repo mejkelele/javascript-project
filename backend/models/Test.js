@@ -10,6 +10,11 @@ const Test = sequelize.define(
     access_code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
     is_public: { type: DataTypes.BOOLEAN, defaultValue: true },
     
+    show_answers: { 
+        type: DataTypes.BOOLEAN, 
+        defaultValue: true 
+    },
+
     scoringMethod: {
       type: DataTypes.STRING,
       defaultValue: "standard"

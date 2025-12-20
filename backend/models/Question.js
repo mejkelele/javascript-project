@@ -12,6 +12,12 @@ const Question = sequelize.define(
     text: { type: DataTypes.TEXT, allowNull: false },
     points: { type: DataTypes.INTEGER, defaultValue: 1 },
     order_index: { type: DataTypes.INTEGER, defaultValue: 0 },
+    
+  
+    is_multiple_choice: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    }
   },
   {
     tableName: "questions",

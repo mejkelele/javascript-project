@@ -8,6 +8,12 @@ const Answer = sequelize.define(
     question_id: { type: DataTypes.INTEGER, allowNull: false },
     answer_text: { type: DataTypes.TEXT },
     is_correct: { type: DataTypes.BOOLEAN },
+    
+    points_earned: { 
+        type: DataTypes.FLOAT,
+        defaultValue: 0 
+    },
+    
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   },
   {
