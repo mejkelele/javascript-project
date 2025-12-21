@@ -21,6 +21,7 @@ const testData = ref({
   access_code: '',
   is_public: true,
   show_answers: true,
+  attempts_limit: 0,
 })
 
 const defaultThresholds = [
@@ -220,6 +221,13 @@ const saveTest = async () => {
 -->
       <label>Opis</label>
       <textarea v-model="testData.description"></textarea>
+      <label>Limit podejść (0 = brak limitu)</label>
+      <input 
+        type="number" 
+        v-model.number="testData.attempts_limit" 
+        min="0" 
+        placeholder="0"
+      />
 
       <div class="settings-grid">
         <div class="checkbox-wrapper">

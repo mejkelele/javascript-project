@@ -92,8 +92,12 @@ router.get("/:id/stats", requireAuth, async (req, res) => {
         // ZMIANA: Pobieramy więcej atrybutów pytań (id, text, points) do wykresów
         const test = await Test.findOne({ 
             where: { id, user_id: userId },
-            include: [{ model: Question, attributes: ['id', 'text', 'points', 'question_type'] }] 
-        });
+            include: [{ 
+                model: Question, 
+                attributes: ['id', 'text', 'points', 'question_type'],
+                include: [QuestionOption] // <--- TO JEST KLUCZOWA ZMIANA
+            }] 
+        })
 
         if (!test) return res.status(403).json({ error: "Brak dostępu lub test nie istnieje" });
 
@@ -201,6 +205,48 @@ router.put("/:id", requireAuth, async (req, res) => {
     }
 });
 
+router.post("/check-access/:code", async (req, res) => {
+    const { code } = req.params;
+    const { guest_name } = req.body || {}; 
+    const userId = req.session.userId;
+    
+    if (!userId) {
+        return res.json({ ok: true });
+    }
+
+    try {
+        const test = await Test.findOne({ where: { access_code: code } });
+        if (!test) return res.status(404).json({ error: "Test nie istnieje" });
+
+        // Jeśli test ma limit podejść
+        if (test.attempts_limit > 0) {
+            const whereClause = { test_id: test.id };
+            
+            // Sprawdzamy dla zalogowanego LUB dla gościa po imieniu
+            if (userId) {
+                whereClause.user_id = userId;
+            } else if (guest_name) {
+                whereClause.guest_name = guest_name;
+            } else {
+                return res.status(400).json({ error: "Podaj imię, aby rozpocząć." });
+            }
+
+            const attemptsCount = await TestSession.count({ where: whereClause });
+            
+            if (attemptsCount >= test.attempts_limit) {
+                return res.status(403).json({ 
+                    error: `Wykorzystano limit podejść (${attemptsCount}/${test.attempts_limit}).` 
+                });
+            }
+        }
+
+        res.json({ ok: true });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Błąd weryfikacji dostępu." });
+    }
+});
+
 // [POST] /api/tests/solve/:code
 router.post("/solve/:code", async (req, res) => {
     const { code } = req.params;
@@ -216,14 +262,13 @@ router.post("/solve/:code", async (req, res) => {
         if (!test) return res.status(404).json({ error: "Test nie istnieje." });
 
         // Limit podejść
-        if (test.attempts_limit && test.attempts_limit > 0) {
-            const whereClause = { test_id: test.id };
-            if (req.session.userId) whereClause.user_id = req.session.userId;
-            else whereClause.guest_name = guest_name;
-
-            const attemptsCount = await TestSession.count({ where: whereClause });
+        if (test.attempts_limit && test.attempts_limit > 0 && req.session.userId) {
+            const attemptsCount = await TestSession.count({ 
+                where: { test_id: test.id, user_id: req.session.userId } 
+            });
+            
             if (attemptsCount >= test.attempts_limit) {
-                return res.status(403).json({ error: `Wykorzystano limit podejść (${test.attempts_limit}).` });
+                return res.status(403).json({ error: `Wykorzystano limit podejść.` });
             }
         }
 

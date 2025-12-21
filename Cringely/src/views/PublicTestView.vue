@@ -50,9 +50,31 @@ onMounted(() => {
   }
 })
 
-const startTest = () => {
-  if (!guestName.value) return alert('Podaj swoje imię!')
-  isStarted.value = true
+const startTest = async () => {
+  // 1. Logika dla NIEZALOGOWANYCH (Gości)
+  if (!auth.isAuthenticated) {
+    if (!guestName.value) {
+      alert('Podaj swoje imię!')
+      return
+    }
+    // Goście nie mają limitu, więc od razu startujemy
+    isStarted.value = true
+    return
+  }
+
+  // 2. Logika dla ZALOGOWANYCH (Sprawdzamy limit)
+  try {
+    // Dodajemy pusty obiekt {} jako drugi parametr
+    await api.post(`/tests/check-access/${route.params.code}`, {})
+    // Jeśli nie ma błędu (200 OK), startujemy
+    isStarted.value = true
+  } catch (e) {
+    if (e.response && e.response.data && e.response.data.error) {
+      alert(e.response.data.error) // Np. "Wykorzystano limit podejść"
+    } else {
+      alert("Wystąpił błąd podczas weryfikacji dostępu.")
+    }
+  }
 }
 
 const submitTest = async () => {

@@ -23,16 +23,20 @@ const loading = ref(true)
 const expandedSessionId = ref(null)
 
 // --- ZMIENNE DO SORTOWANIA ---
-const sortColumn = ref('started_at') // Domyślnie po dacie
-const sortDirection = ref('desc') // Domyślnie od najnowszych
+const sortColumn = ref('started_at')
+const sortDirection = ref('desc')
 
+// --- LOGIKA OCEN ---
 const calculateGrade = (currentScore) => {
   if (!stats.value || !stats.value.totalMaxPoints || stats.value.totalMaxPoints === 0) return '-'
   const max = stats.value.totalMaxPoints
   const percentage = (currentScore / max) * 100
   let thresholds = stats.value.scoreThresholds || []
   if (thresholds.length === 0) return '?'
+  
+  // Kopiujemy tablicę przed sortowaniem, by nie modyfikować oryginału (Vue warning fix)
   thresholds = [...thresholds].sort((a, b) => b.min - a.min)
+  
   for (const t of thresholds) {
     if (percentage >= t.min) return t.grade
   }
@@ -45,24 +49,18 @@ const getGradeColorClass = (grade) => {
   return 'grade-good'
 }
 
-// --- LOGIKA SORTOWANIA (COMPUTED) ---
+// --- SORTOWANIE ---
 const sortedSessions = computed(() => {
   if (!stats.value || !stats.value.sessions) return []
-
-  // Tworzymy kopię tablicy, żeby nie psuć oryginału
   const list = [...stats.value.sessions]
-
   return list.sort((a, b) => {
     let valA = a[sortColumn.value]
     let valB = b[sortColumn.value]
 
-    // Specjalna obsługa daty
     if (sortColumn.value === 'started_at') {
       valA = new Date(valA).getTime()
       valB = new Date(valB).getTime()
-    }
-    // Specjalna obsługa napisów (imion) - ignorujemy wielkość liter
-    else if (typeof valA === 'string') {
+    } else if (typeof valA === 'string') {
       valA = valA.toLowerCase()
       valB = valB.toLowerCase()
     }
@@ -73,22 +71,18 @@ const sortedSessions = computed(() => {
   })
 })
 
-// Funkcja zmieniająca sortowanie po kliknięciu w nagłówek
 const sortBy = (column) => {
   if (sortColumn.value === column) {
-    // Jeśli kliknięto w to samo -> odwróć kolejność
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   } else {
-    // Nowa kolumna -> ustaw domyślny kierunek
     sortColumn.value = column
-    sortDirection.value = 'desc' // Dla liczb/dat zazwyczaj chcemy najpierw największe
-    if (column === 'guest_name') sortDirection.value = 'asc' // Dla nazwisk A-Z
+    sortDirection.value = 'desc'
+    if (column === 'guest_name') sortDirection.value = 'asc'
   }
 }
 
-// Helper do wyświetlania strzałki
 const getSortArrow = (column) => {
-  if (sortColumn.value !== column) return '' // Domyślna "nieaktywna" strzałka
+  if (sortColumn.value !== column) return ''
   return sortDirection.value === 'asc' ? '▲' : '▼'
 }
 
@@ -111,7 +105,9 @@ const passFailData = computed(() => {
 const gradeDistributionData = computed(() => {
   if (!stats.value || !stats.value.sessions) return null
   const counts = {}
-  stats.value.scoreThresholds.forEach((t) => (counts[t.grade] = 0))
+  if (stats.value.scoreThresholds) {
+    stats.value.scoreThresholds.forEach((t) => (counts[t.grade] = 0))
+  }
   counts['2.0'] = 0
   stats.value.sessions.forEach((s) => {
     const g = calculateGrade(s.score)
@@ -126,42 +122,26 @@ const gradeDistributionData = computed(() => {
   }
 })
 
-// const questionDifficultyData = computed(() => {
-//   if (!stats.value || !stats.value.questions || !stats.value.sessions) return null
-//   const data = stats.value.questions.map((q) => {
-//     let earnedSum = 0
-//     let maxPossible = 0
-//     stats.value.sessions.forEach((s) => {
-//       const ans = s.Answers.find((a) => a.Question && a.Question.id === q.id)
-//       if (ans) earnedSum += ans.points_earned || 0
-//       maxPossible += q.points
-//     })
-//     const percent = maxPossible > 0 ? Math.round((earnedSum / maxPossible) * 100) : 0
-//     return { text: q.text, percent }
-//   })
-//   data.sort((a, b) => a.percent - b.percent)
-//   return {
-//     labels: data.map((d) => (d.text.length > 20 ? d.text.substring(0, 20) + '...' : d.text)),
-//     datasets: [
-//       {
-//         label: 'Średni % punktów',
-//         backgroundColor: data.map((d) =>
-//           d.percent < 50 ? '#e74c3c' : d.percent < 80 ? '#f39c12' : '#2ecc71',
-//         ),
-//         data: data.map((d) => d.percent),
-//         indexAxis: 'y',
-//       },
-//     ],
-//   }
-// })
-
 const chartOptions = { responsive: true, maintainAspectRatio: false }
-const horizontalOptions = { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
 
+// --- API ---
 const fetchStats = async () => {
+  loading.value = true
   try {
     const { data } = await api.get(`/tests/${route.params.id}/stats`)
     stats.value = data
+    
+    // NAPRAWA REAKTYWNOŚCI: Inicjalizujemy pole 'newPoints' dla każdej odpowiedzi
+    if (stats.value.sessions) {
+      stats.value.sessions.forEach(session => {
+        if (session.Answers) {
+          session.Answers.forEach(ans => {
+            // Domyślnie pole edycji ma aktualną liczbę punktów
+            ans.newPoints = ans.points_earned !== null ? ans.points_earned : 0;
+          })
+        }
+      })
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -177,27 +157,79 @@ const toggleDetails = (sessionId) => {
 
 const savePoints = async (session, answerId, points) => {
   try {
+    const parsedPoints = parseFloat(points);
+    if (isNaN(parsedPoints)) {
+        alert("Wpisz poprawną liczbę punktów");
+        return;
+    }
+
     await api.post(`/tests/sessions/${session.id}/grade`, {
-      grades: { [answerId]: points },
+      grades: { [answerId]: parsedPoints },
     })
+
+    // Aktualizujemy stan lokalny po sukcesie
     const ans = session.Answers.find((a) => a.id === answerId)
     if (ans) {
-      ans.points_earned = parseFloat(points)
+      ans.points_earned = parsedPoints
       if (ans.points_earned === ans.Question.points) ans.is_correct = true
       else if (ans.points_earned === 0) ans.is_correct = false
-      else ans.is_correct = null
+      else ans.is_correct = null // Częściowe punkty
     }
-    await fetchStats()
+    
+    // Opcjonalnie: odśwież całość, żeby przeliczyć średnie/wykresy
+    // await fetchStats() 
+    
+    // Ale szybciej zaktualizować wynik sesji lokalnie:
+    let newTotal = 0;
+    session.Answers.forEach(a => newTotal += (a.points_earned || 0));
+    session.score = newTotal;
+
+    alert("Zapisano!");
   } catch (e) {
     alert('Błąd zapisu oceny')
+    console.error(e);
   }
+}
+
+// Funkcja pomocnicza do wyświetlania treści odpowiedzi zamiast ID
+const formatAnswer = (question, rawAnswer) => {
+    if (!rawAnswer) return '(Brak)';
+    
+    // Jeśli backend nie przesłał definicji pytań z opcjami, zwracamy oryginał
+    if (!stats.value.questions) return rawAnswer;
+
+    // Znajdź pełną definicję pytania w stats (tam powinny być opcje, o ile backend je wysyła)
+    const fullQuestion = stats.value.questions.find(q => q.id === question.id);
+    
+    // Jeśli pytanie zamknięte i mamy opcje
+    if (fullQuestion && fullQuestion.question_type === 'ABC') {
+        // Logika dla checkboxów/radio
+        let ids = [];
+        try {
+            ids = Array.isArray(rawAnswer) ? rawAnswer : JSON.parse(rawAnswer);
+        } catch {
+            ids = [rawAnswer];
+        }
+        if (!Array.isArray(ids)) ids = [ids]; // Upewnienie się
+
+        // Tutaj potrzebujemy 'QuestionOptions'. Jeśli backend ich nie wysyła w /stats,
+        // to ta funkcja zwróci po prostu ID.
+        // Żeby to działało idealnie, w backendzie w /stats trzeba dodać include: [QuestionOption]
+        if (fullQuestion.QuestionOptions) {
+             const labels = ids.map(id => {
+                const opt = fullQuestion.QuestionOptions.find(o => o.id == id);
+                return opt ? opt.text : id;
+            });
+            return labels.join(', ');
+        }
+    }
+    
+    return rawAnswer;
 }
 </script>
 
 <template>
   <div class="tstats-page">
-    <!--   <button class="tstats-back-btn" @click="router.push('/my-tests')">← Wróć</button> -->
-
     <div v-if="loading" class="tstats-center">Ładowanie danych...</div>
 
     <div v-else-if="stats" class="tstats-content">
@@ -238,17 +270,6 @@ const savePoints = async (session, answerId, points) => {
             />
           </div>
         </div>
-
-        <!--<div class="tstats-chart-card tstats-chart-card--full">
-          <h3 class="tstats-chart-title">Ranking Trudności Pytań (Średni % pkt)</h3>
-          <div class="tstats-chart-wrap">
-            <Bar
-              v-if="questionDifficultyData"
-              :data="questionDifficultyData"
-              :options="horizontalOptions"
-            />
-          </div>
-        </div> -->
       </div>
 
       <div class="tstats-table">
@@ -303,8 +324,8 @@ const savePoints = async (session, answerId, points) => {
                 <tr>
                   <th style="width: 30%">Pytanie</th>
                   <th style="width: 30%">Odpowiedź</th>
-                  <th style="width: 20%">Punkty</th>
-                  <th style="width: 20%">Akcja</th>
+                  <th style="width: 25%">Punkty (Edycja)</th>
+                  <th style="width: 15%">Akcja</th>
                 </tr>
               </thead>
               <tbody>
@@ -315,20 +336,18 @@ const savePoints = async (session, answerId, points) => {
                   </td>
 
                   <td class="tstats-ans-text">
-                    <span v-if="ans.answer_text">{{ ans.answer_text }}</span>
-                    <span v-else class="tstats-ans-empty">(Brak odp.)</span>
+                    {{ formatAnswer(ans.Question, ans.answer_text) }}
                   </td>
 
                   <td>
                     <div class="tstats-points-wrap">
                       <input
                         type="number"
-                        :value="ans.points_earned"
-                        @input="ans.newPoints = $event.target.value"
-                        :placeholder="ans.points_earned"
+                        v-model.number="ans.newPoints"
                         class="tstats-points-input"
                         min="0"
                         :max="ans.Question.points"
+                        step="0.5"
                       />
                       <span class="tstats-slash">/ {{ ans.Question.points }}</span>
                     </div>
@@ -337,13 +356,7 @@ const savePoints = async (session, answerId, points) => {
                   <td>
                     <button
                       class="tstats-save-btn"
-                      @click="
-                        savePoints(
-                          s,
-                          ans.id,
-                          ans.newPoints !== undefined ? ans.newPoints : ans.points_earned,
-                        )
-                      "
+                      @click.stop="savePoints(s, ans.id, ans.newPoints)"
                     >
                       Zapisz
                     </button>
@@ -357,3 +370,25 @@ const savePoints = async (session, answerId, points) => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Te style powinny być dopasowane do Twojego projektu */
+.tstats-points-input {
+    width: 60px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+}
+.tstats-save-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.tstats-save-btn:hover {
+    background: #2980b9;
+}
+</style>
