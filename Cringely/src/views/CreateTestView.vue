@@ -208,10 +208,6 @@ const saveTest = async () => {
   <div class="create-page">
     <div class="header-box">
       <h1>{{ isEditMode ? 'Edycja Testu' : 'Kreator Testu' }}</h1>
-      <div v-if="testData.access_code" class="share-box">
-        <p>🔗 Link do udostępnienia:</p>
-        <code class="link-code">{{ shareLink }}</code>
-      </div>
     </div>
 
     <div class="form-section">
